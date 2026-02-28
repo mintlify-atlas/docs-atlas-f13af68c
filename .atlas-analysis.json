@@ -1,0 +1,99 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Wren LSP",
+  "projectDescription": "A Language Server Protocol implementation for the Wren programming language, providing rich IDE features across multiple editors.",
+  "theme": "aspen",
+  "primaryColor": "#8b5cf6",
+  "lightColor": "#a78bfa",
+  "darkColor": "#7c3aed",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Editor Setup",
+            "pages": [
+              "editors/neovim",
+              "editors/vscode",
+              "editors/helix",
+              "editors/sublime",
+              "editors/zed"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/overview",
+              "configuration/module-resolution",
+              "configuration/resolvers"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/workspace-setup",
+              "guides/multi-file-projects",
+              "guides/custom-resolvers"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Features",
+        "groups": [
+          {
+            "group": "LSP Features",
+            "pages": [
+              "features/overview",
+              "features/diagnostics",
+              "features/completion",
+              "features/navigation",
+              "features/refactoring",
+              "features/formatting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": [
+              "development/building",
+              "development/architecture",
+              "development/testing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Comprehensive LSP feature support (diagnostics, completion, hover, go-to-definition, references, rename)",
+    "Configurable module resolution system with extensible resolver plugins",
+    "Multi-editor support (Neovim, VS Code, Helix, Sublime Text, Zed)",
+    "Semantic analysis with type inference and scope tracking",
+    "Workspace-wide symbol search and cross-file navigation",
+    "Inlay hints for type information",
+    "Code actions and quick fixes",
+    "Document symbols and folding ranges"
+  ],
+  "publicApiSurface": [
+    "wren-lsp (CLI binary)",
+    "wren-lsp.json (configuration file)",
+    "Module resolution API",
+    "Path resolver",
+    "Plugin resolver",
+    "Custom resolver interface"
+  ]
+}
