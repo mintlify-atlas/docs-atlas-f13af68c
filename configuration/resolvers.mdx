@@ -1,0 +1,487 @@
+---
+title: Resolvers
+description: Configure resolver types and custom module resolution behavior
+---
+
+Resolvers are plugins that convert import strings into module identifiers and file paths. Wren LSP supports multiple resolver types that can be chained together.
+
+## Resolver Types
+
+### Path Resolver
+
+The path resolver treats import strings as file paths. It supports:
+- Relative imports (`./` and `../`)
+- Absolute paths
+- Module name resolution with custom delimiters
+- Named module mappings
+
+<ParamField path="type" type="string" required>
+  Must be `"path"`
+</ParamField>
+
+<ParamField path="roots" type="string[]" default={[]}>
+  Directory paths to search for modules. Paths are resolved relative to the project root.
+  
+  Modules from the `modules` configuration array are automatically added to roots.
+</ParamField>
+
+<ParamField path="delimiter" type="string" default={"/"}>
+  Character(s) to replace with path separator in module names.
+  
+  Examples:
+  - `"/"`: `"game/physics"` → `game/physics.wren`
+  - `"."`: `"game.physics"` → `game/physics.wren`
+  - `"::"`: `"game::physics"` → `game/physics.wren`
+</ParamField>
+
+#### Basic Configuration
+
+<CodeGroup>
+```json Standard Path Resolution
+{
+  "resolvers": [
+    {
+      "type": "path",
+      "roots": ["./src", "./lib"],
+      "delimiter": "/"
+    }
+  ]
+}
+```
+
+```json Dot-Delimited Modules
+{
+  "resolvers": [
+    {
+      "type": "path",
+      "roots": ["./src"],
+      "delimiter": "."
+    }
+  ]
+}
+```
+</CodeGroup>
+
+#### Resolution Algorithm
+
+The path resolver resolves imports in this order:
+
+1. **Relative imports** - Resolved relative to importing file
+   ```wren
+   import "./utils" // → same directory
+   import "../shared/config" // → parent directory
+   ```
+
+2. **Absolute paths** - Used directly
+   ```wren
+   import "/usr/local/lib/wren/math" // → absolute path
+   ```
+
+3. **Named modules** - Exact string match (searched last-to-first)
+   ```json
+   "modules": [{ "config": "./lib/config.wren" }]
+   ```
+   ```wren
+   import "config" // → ./lib/config.wren
+   ```
+
+4. **Module name resolution** - Search roots with delimiter conversion
+   ```wren
+   import "game.physics" // with delimiter "."
+   // searches: ./src/game/physics.wren, ./lib/game/physics.wren
+   ```
+
+All resolved paths automatically append `.wren` extension if not present.
+
+#### Real-World Example
+
+From `examples/resolvers/path/dome/wren-lsp.json`:
+
+```json
+{
+  "modules": [
+    "./lib",
+    { "abc": "./lib/test.wren" }
+  ],
+  "extends": ["/Users/jossephus/.local/share/dome"]
+}
+```
+
+This configuration:
+- Searches `./lib` directory for modules
+- Maps `"abc"` to specific file `./lib/test.wren`
+- Inherits additional configuration from DOME game engine
+
+### Plugin Resolver
+
+The plugin resolver loads a native shared library that implements custom resolution logic. Useful for:
+- Package managers (npm, cargo-style)
+- Remote module fetching
+- Virtual file systems
+- Build-time module generation
+
+<ParamField path="type" type="string" required>
+  Must be `"plugin"`
+</ParamField>
+
+<ParamField path="library" type="string" required>
+  Path to the shared library file.
+  
+  - Relative paths (starting with `./`) are resolved relative to project root
+  - Platform-specific extensions (`.so`, `.dylib`, `.dll`) are automatically appended if not present
+  - Absolute paths are used as-is
+</ParamField>
+
+<ParamField path="fallbackToBuiltin" type="boolean" default={true}>
+  Whether to continue the resolver chain if this plugin returns `null`.
+  
+  - `true`: Continue to next resolver
+  - `false`: Stop the chain immediately (no builtin fallback)
+</ParamField>
+
+#### Configuration Example
+
+<CodeGroup>
+```json Basic Plugin
+{
+  "resolvers": [
+    {
+      "type": "plugin",
+      "library": "./math_resolver"
+    }
+  ]
+}
+```
+
+```json Plugin Without Fallback
+{
+  "resolvers": [
+    {
+      "type": "plugin",
+      "library": "./custom_resolver.dylib",
+      "fallbackToBuiltin": false
+    }
+  ]
+}
+```
+</CodeGroup>
+
+#### Plugin ABI
+
+Plugins must export these C ABI functions:
+
+```c
+typedef struct {
+    const char* canonical_id;  // Required: unique module identifier
+    const char* uri;           // Optional: file:// URI
+    const char* source;        // Optional: module source code
+    const char* kind;          // Optional: "file", "virtual", or "remote"
+    WrenLspDiagnostic* diagnostics;
+    size_t diagnostics_len;
+} WrenLspResolveResult;
+
+typedef struct {
+    const char* severity;  // "error", "warning", "info", or "hint"
+    const char* message;
+} WrenLspDiagnostic;
+
+WrenLspResolveResult wren_lsp_resolve_module(
+    const char* importer_uri,
+    const char* import_string,
+    const char* project_root
+);
+
+void wren_lsp_free_result(WrenLspResolveResult result);
+```
+
+**Function Requirements:**
+
+<Accordion title="wren_lsp_resolve_module">
+- **Returns** `WrenLspResolveResult` with all pointers null-terminated
+- **canonical_id**: If `NULL`, indicates resolution failure (pass to next resolver)
+- **uri**: File URI if module is file-backed, `NULL` for virtual modules
+- **source**: Module source code if not file-backed
+- **kind**: Module type (`"file"`, `"virtual"`, `"remote"`)
+- **diagnostics**: Array of diagnostics to report
+- **diagnostics_len**: Number of diagnostics in array
+
+All returned strings must remain valid until `wren_lsp_free_result` is called.
+</Accordion>
+
+<Accordion title="wren_lsp_free_result">
+- **Frees** all memory allocated for the result
+- **Called** once per successful resolution
+- **Must free**: All strings, arrays, and the result struct itself
+</Accordion>
+
+#### Plugin Example
+
+From `examples/resolvers/plugin/wren-lsp.json`:
+
+```json
+{
+  "version": 1,
+  "modules": ["./src"],
+  "resolvers": [
+    { "type": "plugin", "library": "./math_resolver" },
+    { "type": "path", "roots": ["./src"], "delimiter": "/" }
+  ]
+}
+```
+
+This configuration:
+1. Tries the custom `math_resolver` plugin first
+2. Falls back to path resolver for file-based imports
+3. Falls back to builtin resolver last
+
+### Host Resolver
+
+The host resolver delegates resolution to the WebAssembly host environment. Only available when Wren LSP runs as WebAssembly.
+
+<ParamField path="type" type="string" required>
+  Must be `"host"`
+</ParamField>
+
+<ParamField path="script" type="string">
+  Optional script path for host-specific configuration.
+  
+  <Warning>
+  Currently unused by the implementation. Reserved for future use.
+  </Warning>
+</ParamField>
+
+<ParamField path="fallbackToBuiltin" type="boolean" default={true}>
+  Whether to continue the resolver chain if the host returns `null`.
+</ParamField>
+
+#### Host ABI
+
+The host must implement this WebAssembly import:
+
+```wat
+(import "env" "wren_lsp_host_resolve" (func
+  (param $importer_ptr i32)
+  (param $importer_len i32)
+  (param $import_ptr i32)
+  (param $import_len i32)
+  (param $project_root_ptr i32)
+  (param $project_root_len i32)
+  (param $out_ptr i32)
+  (param $out_cap i32)
+  (result i32)  ;; returns needed buffer size, 0 if unresolved
+))
+```
+
+**Function Behavior:**
+
+- **Input**: Import request parameters passed as pointer + length pairs
+- **Output**: JSON result written to `$out_ptr` buffer
+- **Returns**: Number of bytes needed (may exceed `$out_cap` if buffer too small)
+- **Returns**: `0` if import cannot be resolved
+
+The JSON output format:
+
+```json
+{
+  "canonical_id": "wren://custom/module",
+  "uri": "file:///path/to/module.wren",
+  "source": "class Example {}",
+  "kind": "virtual"
+}
+```
+
+All fields except `canonical_id` are optional.
+
+<Note>
+The host resolver is automatically added to the default chain on WebAssembly targets.
+</Note>
+
+### Builtin Resolver
+
+The builtin resolver provides Wren's standard library modules. It resolves imports like:
+
+```wren
+import "random" for Random
+import "meta" for Meta
+```
+
+**Behavior:**
+- Automatically added last in every resolver chain
+- Cannot be configured or disabled
+- Skips relative and absolute path imports
+- Returns embedded source code for known modules
+- Uses `wren://builtin/` URI scheme
+
+<Warning>
+The builtin resolver is **always active**. To prevent builtin fallback, set `fallbackToBuiltin: false` on preceding resolvers.
+</Warning>
+
+## Resolver Chain Examples
+
+### Dome Game Engine
+
+```json
+{
+  "modules": ["./lib"],
+  "extends": ["~/.local/share/dome"],
+  "resolvers": [
+    { "type": "path", "roots": ["./lib"], "delimiter": "/" }
+  ]
+}
+```
+
+**Resolution order:**
+1. Path resolver checks `./lib` directory
+2. Path resolver checks inherited DOME modules
+3. Builtin resolver provides Wren standard library
+
+### Custom Package Manager
+
+```json
+{
+  "resolvers": [
+    {
+      "type": "plugin",
+      "library": "./pkg_resolver",
+      "fallbackToBuiltin": true
+    },
+    {
+      "type": "path",
+      "roots": ["./src"],
+      "delimiter": "."
+    }
+  ]
+}
+```
+
+**Resolution order:**
+1. Plugin resolver tries package resolution
+2. Path resolver handles local imports
+3. Builtin resolver provides standard library
+
+### Isolated Environment
+
+```json
+{
+  "resolvers": [
+    {
+      "type": "plugin",
+      "library": "./sandbox_resolver",
+      "fallbackToBuiltin": false
+    }
+  ]
+}
+```
+
+**Resolution order:**
+1. Plugin resolver (only resolver)
+2. **No fallback** - imports not handled by plugin will fail
+
+<Note>
+This prevents access to file system and builtin modules, useful for sandboxed execution.
+</Note>
+
+## Platform-Specific Behavior
+
+### Library Extensions
+
+Plugin libraries use platform-specific extensions:
+
+- **Linux**: `.so`
+- **macOS**: `.dylib`
+- **Windows**: `.dll`
+
+The resolver automatically appends the correct extension:
+
+```json
+// You write:
+{ "library": "./my_resolver" }
+
+// LSP resolves to:
+// - Linux: ./my_resolver.so
+// - macOS: ./my_resolver.dylib  
+// - Windows: ./my_resolver.dll
+```
+
+### Path Normalization
+
+All paths in configuration are normalized:
+
+- `.` components removed
+- `..` components resolved
+- Relative paths resolved against config file directory
+- Leading `./` preserved for relative paths
+
+<Warning>
+Paths are normalized when the config is loaded. Symlinks are resolved during module resolution.
+</Warning>
+
+## Debugging Resolvers
+
+### Enable Logging
+
+Wren LSP logs resolver activity at `info` level:
+
+```
+[wren_lsp_resolver] PathResolver: resolve import='./utils'
+[wren_lsp_resolver] PluginResolver: resolved canonical_id='file:///project/src/utils.wren'
+```
+
+### Common Issues
+
+<Accordion title="Plugin library not found">
+**Symptoms:** LSP logs "Failed to load plugin library"
+
+**Causes:**
+- Wrong file path
+- Missing platform extension
+- Library not compiled for current platform
+
+**Solutions:**
+- Use absolute paths for testing: `"/full/path/to/lib.so"`
+- Check file exists: `ls -l ./resolver.dylib`
+- Verify platform: `file ./resolver.dylib`
+</Accordion>
+
+<Accordion title="Plugin symbols not found">
+**Symptoms:** LSP logs "Plugin missing wren_lsp_resolve_module symbol"
+
+**Causes:**
+- Functions not exported with C ABI
+- Name mangling in C++ code
+- Missing extern "C" declaration
+
+**Solutions:**
+```c
+// Ensure C linkage
+extern "C" {
+    WrenLspResolveResult wren_lsp_resolve_module(...);
+    void wren_lsp_free_result(...);
+}
+```
+</Accordion>
+
+<Accordion title="Module resolves to wrong file">
+**Symptoms:** Imports resolve but to unexpected files
+
+**Causes:**
+- Named module shadows directory
+- Delimiter misconfiguration
+- Root search order
+
+**Solutions:**
+- Check named modules take priority
+- Verify delimiter matches import syntax
+- Reorder roots array if needed
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Module Resolution" icon="folder-tree" href="/configuration/module-resolution">
+    Understand the resolution process
+  </Card>
+  <Card title="Configuration Overview" icon="gear" href="/configuration/overview">
+    Back to configuration basics
+  </Card>
+</CardGroup>

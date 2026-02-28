@@ -1,0 +1,300 @@
+---
+title: Navigation
+description: Navigate your Wren codebase with LSP-powered features
+---
+
+Wren LSP provides powerful navigation features that help you explore and understand your code.
+
+## Go to Definition
+
+Jump directly to where a symbol is defined.
+
+### What It Finds
+
+<CardGroup cols={2}>
+  <Card title="Variables" icon="v">
+    Local variables and parameters
+  </Card>
+  <Card title="Classes" icon="cube">
+    Class declarations
+  </Card>
+  <Card title="Methods" icon="function">
+    Method and function definitions
+  </Card>
+  <Card title="Imports" icon="file-import">
+    Imported symbols from other modules
+  </Card>
+</CardGroup>
+
+### How to Use
+
+1. Position cursor on a symbol
+2. Trigger "Go to Definition" (typically `F12` or `Ctrl+Click`)
+3. Editor jumps to the definition
+
+### Examples
+
+```wren
+class Calculator {
+  static add(a, b) {
+    return a + b
+  }
+}
+
+var result = Calculator.add(2, 3)
+//           ^^^^^^^^^^^
+//           Click here - jumps to class definition
+//                       ^^^
+//                       Click here - jumps to method definition
+```
+
+### Imported Symbols
+
+Definition navigation works across files:
+
+```wren
+// main.wren
+import "./person" for Person
+
+var p = Person.new("Alice")
+//      ^^^^^^
+//      Jumps to Person class in ./person.wren
+```
+
+<Tip>
+  Go to definition works on any identifier, including class names, method names, and variables.
+</Tip>
+
+## Find References
+
+Locate all places where a symbol is used.
+
+### Use Cases
+
+- See everywhere a variable is referenced
+- Find all calls to a method
+- Discover all instantiations of a class
+- Track usage of imported symbols
+
+### How to Use
+
+1. Position cursor on a symbol definition or usage
+2. Trigger "Find References" (typically `Shift+F12`)
+3. View list of all references
+
+### Example
+
+```wren
+class User {
+  construct new(name) {
+    _name = name  // Reference 1
+  }
+  
+  greet() {
+    System.print(_name)  // Reference 2
+  }
+  
+  getName() {
+    return _name  // Reference 3
+  }
+}
+```
+
+Running "Find References" on `_name` shows all three locations.
+
+<Note>
+  References currently work within a single file. Cross-file reference tracking is planned for future releases.
+</Note>
+
+## Document Symbols
+
+View an outline of all symbols in the current file.
+
+### What's Included
+
+- Classes with their methods
+- Top-level variables
+- Import statements
+- Hierarchical structure
+
+### How to Use
+
+Access the document outline (varies by editor):
+
+- **VS Code**: `Ctrl+Shift+O` or click outline in sidebar
+- **Neovim**: `:Telescope lsp_document_symbols`
+- **Sublime Text**: `Ctrl+R` or `Goto Symbol`
+- **Helix**: Space + s (symbol search)
+
+### Example Structure
+
+```wren
+class Calculator
+  ├─ construct new()
+  ├─ add(a, b)
+  ├─ subtract(a, b)
+  └─ multiply(a, b)
+
+class MathHelper
+  ├─ static pi
+  └─ static sqrt(n)
+
+var globalConfig
+```
+
+<Tip>
+  Document symbols update in real-time as you edit.
+</Tip>
+
+## Workspace Symbols
+
+Search for symbols across your entire project.
+
+### What It Searches
+
+- All open files
+- All files in workspace folders
+- Classes and top-level variables
+- Fuzzy matching support
+
+### How to Use
+
+1. Trigger workspace symbol search:
+   - **VS Code**: `Ctrl+T`
+   - **Neovim**: `:Telescope lsp_workspace_symbols`
+   - **Sublime Text**: `Ctrl+Shift+R`
+2. Type part of the symbol name
+3. Select from results
+
+### Example
+
+Searching for "Person" finds:
+
+```
+Person (class in models/person.wren)
+PersonController (class in controllers/person_controller.wren)
+getPersonById (method in services/user_service.wren)
+```
+
+## Document Highlights
+
+Automatically highlight all occurrences of the symbol under your cursor.
+
+### How It Works
+
+1. Place cursor on any variable, class, or method name
+2. All uses in the current file are highlighted
+3. Move cursor away to clear highlights
+
+### Visual Feedback
+
+Typically shows:
+- **Write references** - Different highlight (e.g., bold)
+- **Read references** - Standard highlight
+
+```wren
+class Counter {
+  construct new() {
+    _count = 0  // Highlighted if cursor on _count
+  }
+  
+  increment() {
+    _count = _count + 1  // Both occurrences highlighted
+  }
+  
+  getCount() {
+    return _count  // Also highlighted
+  }
+}
+```
+
+<Note>
+  Highlight appearance depends on your editor theme and LSP client configuration.
+</Note>
+
+## Selection Ranges
+
+Expand or shrink text selection based on code structure.
+
+### How to Use
+
+- **Expand**: Select progressively larger semantic units
+- **Shrink**: Reduce selection to smaller semantic unit
+
+Typical keybindings:
+- **VS Code**: `Shift+Alt+Right` (expand) / `Shift+Alt+Left` (shrink)
+- **Neovim**: Varies by plugin
+
+### Example Progression
+
+```wren
+var result = calculator.add(2, 3)
+```
+
+Starting with cursor on `2`:
+
+1. `2` (number literal)
+2. `2, 3` (argument list)
+3. `calculator.add(2, 3)` (method call)
+4. `calculator.add(2, 3)` (entire expression)
+5. `var result = calculator.add(2, 3)` (full statement)
+
+<Tip>
+  Selection ranges are perfect for quickly selecting method calls, parameters, or entire statements.
+</Tip>
+
+## Signature Help
+
+View parameter information while typing method calls.
+
+### When It Appears
+
+Automatically shows when you:
+- Type `(` after a method name
+- Type `,` between parameters
+- Manually trigger (typically `Ctrl+Shift+Space`)
+
+### What It Shows
+
+- Method signature
+- Current parameter highlighted
+- Parameter count
+
+### Example
+
+```wren
+List.filled(
+//          ^
+//          Signature appears: filled(size, element)
+//                             Current: size
+```
+
+```wren
+List.filled(10,
+//             ^
+//             Signature still visible
+//             Current: element
+```
+
+## Navigation Performance
+
+All navigation features are fast:
+
+- **Go to Definition**: < 10ms
+- **Find References**: < 50ms  
+- **Document Symbols**: < 20ms
+- **Workspace Symbols**: < 200ms (depends on project size)
+
+## Keybindings Summary
+
+| Feature | VS Code | Neovim (typical) |
+|---------|---------|------------------|
+| Go to Definition | `F12` or `Ctrl+Click` | `gd` |
+| Find References | `Shift+F12` | `gr` |
+| Document Symbols | `Ctrl+Shift+O` | `:Telescope lsp_document_symbols` |
+| Workspace Symbols | `Ctrl+T` | `:Telescope lsp_workspace_symbols` |
+| Signature Help | `Ctrl+Shift+Space` | Automatic in insert mode |
+
+<Note>
+  Keybindings may vary based on your editor configuration. Consult your editor's LSP documentation.
+</Note>

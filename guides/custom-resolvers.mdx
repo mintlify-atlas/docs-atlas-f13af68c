@@ -1,0 +1,424 @@
+---
+title: 'Custom Resolvers'
+description: 'Creating custom resolver plugins for advanced module resolution'
+---
+
+## Overview
+
+When the built-in path-based resolver isn't sufficient, you can create custom resolver plugins. Resolvers are shared libraries (`.dylib`, `.so`, or `.dll`) that implement a C interface for module resolution.
+
+Common use cases:
+- Virtual modules (modules without corresponding files)
+- Remote module loading (fetching from URLs or databases)
+- Custom import syntax transformations
+- Integration with package managers
+- Dynamic code generation
+
+## Resolver Chain
+
+Wren LSP uses a **resolver chain** that tries each resolver in order until one succeeds:
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": ["./src"],
+  "resolvers": [
+    { "type": "plugin", "library": "./my_resolver" },
+    { "type": "path", "roots": ["./src"], "delimiter": "/" }
+  ]
+}
+```
+
+Execution flow:
+1. Plugin resolver tries to resolve import
+2. If it returns `null`, path resolver tries
+3. If all resolvers fail, builtin resolver tries (for standard library)
+
+<Note>
+If you don't specify any resolvers, Wren LSP uses a default chain: Path resolver → Builtin resolver.
+</Note>
+
+## Resolver C Interface
+
+A resolver plugin must export two C functions:
+
+```c
+WrenLspResolveResult wren_lsp_resolve_module(
+    const char* importer_uri,
+    const char* import_string,
+    const char* project_root
+);
+
+void wren_lsp_free_result(WrenLspResolveResult result);
+```
+
+### Data Structures
+
+```c
+typedef struct {
+    const char* severity;  // "error", "warning", "info", or "hint"
+    const char* message;
+} WrenLspDiagnostic;
+
+typedef struct {
+    const char* canonical_id;       // Required: unique module identifier
+    const char* uri;                // Optional: file URI if module is file-backed
+    const char* source;             // Optional: module source code
+    const char* kind;               // Optional: "file", "virtual", or "remote"
+    WrenLspDiagnostic* diagnostics; // Optional: resolver-provided diagnostics
+    size_t diagnostics_len;         // Number of diagnostics
+} WrenLspResolveResult;
+```
+
+### Return Values
+
+- **Success**: Return a `WrenLspResolveResult` with `canonical_id` set
+- **Unresolved**: Return a result with `canonical_id = NULL`
+- **Virtual module**: Set `source` to the module code, `kind` to `"virtual"`
+- **File module**: Set `uri` to the file path, leave `source` as `NULL`
+
+## Example: Math Module Resolver
+
+This example shows a resolver that provides a virtual `math` module with a `Vector` class:
+
+<CodeGroup>
+```c math_resolver.c
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    const char* severity;
+    const char* message;
+} WrenLspDiagnostic;
+
+typedef struct {
+    const char* canonical_id;
+    const char* uri;
+    const char* source;
+    const char* kind;
+    WrenLspDiagnostic* diagnostics;
+    size_t diagnostics_len;
+} WrenLspResolveResult;
+
+static const char* dup_string(const char* value) {
+    size_t len = strlen(value) + 1;
+    char* out = (char*)malloc(len);
+    if (!out) return NULL;
+    memcpy(out, value, len);
+    return out;
+}
+
+static const char* kMathSource =
+    "class Vector {\n"
+    "  construct new(x, y, z) {\n"
+    "    _x = x\n"
+    "    _y = y\n"
+    "    _z = z\n"
+    "  }\n"
+    "\n"
+    "  length {\n"
+    "    return Math.sqrt(_x * _x + _y * _y + _z * _z)\n"
+    "  }\n"
+    "}\n";
+
+WrenLspResolveResult wren_lsp_resolve_module(
+    const char* importer_uri,
+    const char* import_string,
+    const char* project_root
+) {
+    (void)importer_uri;
+    (void)project_root;
+
+    WrenLspResolveResult result = {0};
+    if (import_string == NULL) {
+        return result;
+    }
+
+    // Only handle "math" imports
+    if (strcmp(import_string, "math") != 0) {
+        return result;  // canonical_id = NULL means "not handled"
+    }
+
+    // Return virtual module
+    result.canonical_id = dup_string("wren://plugin/math");
+    result.kind = dup_string("virtual");
+    result.source = dup_string(kMathSource);
+    return result;
+}
+
+void wren_lsp_free_result(WrenLspResolveResult result) {
+    free((void*)result.canonical_id);
+    free((void*)result.uri);
+    free((void*)result.source);
+    free((void*)result.kind);
+    if (result.diagnostics != NULL && result.diagnostics_len > 0) {
+        for (size_t i = 0; i < result.diagnostics_len; ++i) {
+            free((void*)result.diagnostics[i].severity);
+            free((void*)result.diagnostics[i].message);
+        }
+        free(result.diagnostics);
+    }
+}
+```
+
+```bash build.sh
+#!/bin/bash
+# Build script for macOS
+gcc -shared -fPIC -o math_resolver.dylib math_resolver.c
+
+# For Linux:
+# gcc -shared -fPIC -o math_resolver.so math_resolver.c
+
+# For Windows:
+# gcc -shared -o math_resolver.dll math_resolver.c
+```
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": ["./src"],
+  "resolvers": [
+    { "type": "plugin", "library": "./math_resolver" },
+    { "type": "path", "roots": ["./src"], "delimiter": "/" }
+  ]
+}
+```
+
+```wren src/main.wren
+import "math" for Vector
+
+var v = Vector.new(3, 4, 12)
+System.print(v.length)  // 13
+```
+</CodeGroup>
+
+<Tip>
+The LSP automatically adds the platform-specific extension (`.dylib`, `.so`, or `.dll`) if not present in the library path.
+</Tip>
+
+## Resolver Diagnostics
+
+Resolvers can report custom diagnostics when resolving imports:
+
+```c
+WrenLspResolveResult wren_lsp_resolve_module(
+    const char* importer_uri,
+    const char* import_string,
+    const char* project_root
+) {
+    WrenLspResolveResult result = {0};
+
+    if (strcmp(import_string, "deprecated_module") == 0) {
+        result.canonical_id = dup_string("wren://plugin/deprecated");
+        result.kind = dup_string("virtual");
+        result.source = dup_string("// Empty module\n");
+        
+        // Add a warning diagnostic
+        result.diagnostics_len = 1;
+        result.diagnostics = (WrenLspDiagnostic*)malloc(sizeof(WrenLspDiagnostic));
+        if (result.diagnostics != NULL) {
+            result.diagnostics[0].severity = dup_string("warning");
+            result.diagnostics[0].message = dup_string("This module is deprecated. Use 'new_module' instead.");
+        }
+    }
+
+    return result;
+}
+```
+
+The diagnostic appears inline in the editor:
+
+```wren
+import "deprecated_module" for OldAPI
+//     ^^^^^^^^^^^^^^^^^^^ Warning: This module is deprecated. Use 'new_module' instead.
+```
+
+## Fallback Behavior
+
+By default, if a plugin resolver returns `null` (unresolved), the LSP tries the next resolver in the chain. You can disable this fallback:
+
+```json wren-lsp.json
+{
+  "resolvers": [
+    {
+      "type": "plugin",
+      "library": "./strict_resolver",
+      "fallbackToBuiltin": false
+    }
+  ]
+}
+```
+
+With `fallbackToBuiltin: false`, if the plugin returns `null`, the entire resolution fails immediately (no other resolvers are tried).
+
+<Warning>
+Disabling fallback means imports not handled by your plugin will fail, even for builtin modules like `"random"` or `"meta"`.
+</Warning>
+
+## Advanced Example: Blocking Imports
+
+Block certain imports and provide helpful diagnostics:
+
+```c
+WrenLspResolveResult wren_lsp_resolve_module(
+    const char* importer_uri,
+    const char* import_string,
+    const char* project_root
+) {
+    (void)importer_uri;
+    (void)project_root;
+
+    WrenLspResolveResult result = {0};
+
+    // Block imports of "bad" module
+    if (strcmp(import_string, "bad") == 0) {
+        result.canonical_id = dup_string("wren://plugin/bad");
+        result.kind = dup_string("virtual");
+        result.source = dup_string("// intentionally empty\n");
+        result.diagnostics_len = 1;
+        result.diagnostics = (WrenLspDiagnostic*)malloc(sizeof(WrenLspDiagnostic));
+        if (result.diagnostics != NULL) {
+            result.diagnostics[0].severity = dup_string("error");
+            result.diagnostics[0].message = dup_string("Plugin blocked import \"bad\".");
+        }
+        return result;
+    }
+
+    // Let other resolvers handle it
+    return result;
+}
+```
+
+Usage:
+```wren
+import "bad" for A
+//     ^^^^^ Error: Plugin blocked import "bad".
+```
+
+## Module Kinds
+
+The `kind` field controls how the LSP treats the module:
+
+| Kind | Description | Use Case |
+|------|-------------|----------|
+| `"file"` | Module is backed by a file on disk | Normal source files |
+| `"virtual"` | Module exists only in memory | Generated code, embedded modules |
+| `"remote"` | Module is fetched from a remote source | Package managers, CDN imports |
+
+<Note>
+If `source` is provided, the LSP uses it directly instead of reading from `uri`. This is required for virtual and remote modules.
+</Note>
+
+## Loading the Resolver
+
+Resolvers are loaded at LSP startup when a workspace is opened. The library path is resolved relative to the project root:
+
+```json
+{
+  "resolvers": [
+    { "type": "plugin", "library": "./resolvers/custom" }
+  ]
+}
+```
+
+Search order:
+1. Exact path if it has a library extension (`.dylib`, `.so`, `.dll`)
+2. Path with platform-specific extension appended
+3. Relative to project root if path starts with `./`
+
+<Steps>
+  <Step title="Build the plugin">
+    Compile your resolver as a shared library:
+    
+    ```bash
+    gcc -shared -fPIC -o my_resolver.dylib my_resolver.c
+    ```
+  </Step>
+
+  <Step title="Configure wren-lsp.json">
+    Add the plugin to your resolver chain:
+    
+    ```json
+    {
+      "resolvers": [
+        { "type": "plugin", "library": "./my_resolver" }
+      ]
+    }
+    ```
+  </Step>
+
+  <Step title="Restart the LSP">
+    Reload your editor or restart the language server to load the new plugin.
+  </Step>
+</Steps>
+
+## Resolver Interface Summary
+
+### Required Functions
+
+```c
+WrenLspResolveResult wren_lsp_resolve_module(
+    const char* importer_uri,   // URI of file containing import
+    const char* import_string,  // Raw import string (e.g., "player")
+    const char* project_root    // Project root directory path
+);
+```
+
+**Returns:**
+- `canonical_id != NULL` → Module resolved successfully
+- `canonical_id == NULL` → Module not handled, try next resolver
+
+```c
+void wren_lsp_free_result(WrenLspResolveResult result);
+```
+
+**Purpose:** Free all memory allocated by `wren_lsp_resolve_module`.
+
+### Field Requirements
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `canonical_id` | Yes | Unique module identifier (URI format recommended) |
+| `uri` | No | File path if module is file-backed |
+| `source` | No | Module source code for virtual/remote modules |
+| `kind` | No | Module type: `"file"`, `"virtual"`, or `"remote"` |
+| `diagnostics` | No | Array of diagnostics to report |
+| `diagnostics_len` | No | Number of diagnostics |
+
+## Debugging Tips
+
+### Enable LSP Logging
+
+Check your editor's LSP log output to see resolver activity:
+
+```
+[INFO] PluginResolver: resolve import='math'
+[INFO] PluginResolver: resolved canonical_id='wren://plugin/math'
+```
+
+### Common Issues
+
+**Plugin not loading:**
+- Verify the library path is correct and relative to project root
+- Check file permissions (must be readable and executable)
+- Ensure platform-specific extension is correct
+
+**Symbols not found:**
+- Verify functions are exported with C linkage (use `extern "C"` in C++)
+- Check symbol names exactly match: `wren_lsp_resolve_module` and `wren_lsp_free_result`
+
+**Memory leaks:**
+- Ensure `wren_lsp_free_result` frees all allocated memory
+- Use `malloc` for allocations that will be freed by the LSP
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workspace Setup" icon="folder-gear" href="/guides/workspace-setup">
+    Configure your workspace and project structure
+  </Card>
+  <Card title="Multi-File Projects" icon="folder-tree" href="/guides/multi-file-projects">
+    Learn about import resolution and cross-file navigation
+  </Card>
+</CardGroup>

@@ -1,0 +1,89 @@
+---
+title: Features Overview
+description: Complete overview of all LSP features supported by Wren LSP
+---
+
+Wren LSP provides a comprehensive set of Language Server Protocol features that enhance your Wren development experience across all supported editors.
+
+## Feature Categories
+
+<CardGroup cols={2}>
+  <Card title="Diagnostics" icon="triangle-exclamation" href="/features/diagnostics">
+    Real-time error checking and warnings as you type
+  </Card>
+  <Card title="Code Completion" icon="code" href="/features/completion">
+    Intelligent suggestions for identifiers, members, and imports
+  </Card>
+  <Card title="Navigation" icon="compass" href="/features/navigation">
+    Jump to definitions, find references, and explore symbols
+  </Card>
+  <Card title="Refactoring" icon="arrows-rotate" href="/features/refactoring">
+    Rename symbols across your codebase with confidence
+  </Card>
+  <Card title="Formatting & Display" icon="paintbrush" href="/features/formatting">
+    Syntax highlighting, code folding, and type hints
+  </Card>
+</CardGroup>
+
+## Quick Reference
+
+### Diagnostics
+- Syntax error detection
+- Semantic error checking
+- Import path validation
+- Missing export warnings
+- Quick fixes for common issues
+
+### Code Completion
+- Local variables and parameters
+- Class methods (static and instance)
+- Built-in types and methods
+- Import path completion
+- Imported symbol completion
+
+### Navigation
+- Go to definition
+- Find all references
+- Document outline (symbols)
+- Workspace-wide symbol search
+- Document highlights
+- Selection ranges
+
+### Refactoring
+- Rename symbols
+- Signature help for method calls
+- Code actions for quick fixes
+
+### Formatting & Display
+- Semantic token highlighting
+- Inlay type hints for variables
+- Code folding ranges
+- Hover information
+
+## Editor Support
+
+All features work consistently across supported editors:
+
+- **Neovim** - Full LSP support via lspconfig
+- **VS Code** - Rich integration with IntelliSense
+- **Sublime Text** - Complete LSP functionality
+- **Helix** - Native LSP integration
+
+See the [Editor Setup](/editors/neovim) guide for configuration instructions.
+
+## Performance
+
+Wren LSP is designed for speed:
+
+- Fast incremental parsing
+- Efficient symbol caching
+- Minimal memory footprint
+- Responsive even on large codebases
+
+<Note>
+  Most features work immediately after opening a file, with no configuration required.
+</Note>
+
+## Feature Stability
+
+All documented features are fully implemented and stable. The LSP follows semantic versioning and maintains backward compatibility.

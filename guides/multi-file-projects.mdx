@@ -1,0 +1,386 @@
+---
+title: 'Multi-File Projects'
+description: 'Working with imports and cross-file navigation in Wren LSP'
+---
+
+## How Imports Work
+
+Wren uses the `import` statement to load code from other modules:
+
+```wren
+import "player" for Player
+import "math" for Vector, Matrix
+```
+
+Wren LSP resolves these import strings to actual files using a configurable resolver chain.
+
+## Import Resolution Strategies
+
+Wren LSP supports three types of import patterns:
+
+### Relative Imports
+
+Imports starting with `./` or `../` are resolved relative to the importing file:
+
+```wren src/game/player.wren
+import "../utils/math" for Vector
+import "./enemy" for Enemy
+```
+
+- `"../utils/math"` resolves to `src/utils/math.wren`
+- `"./enemy"` resolves to `src/game/enemy.wren`
+
+<Note>
+The `.wren` extension is automatically added if not present.
+</Note>
+
+### Module Path Imports
+
+Imports without `./` or `../` are resolved using the `modules` configuration:
+
+**Configuration:**
+```json wren-lsp.json
+{
+  "modules": ["./src", "./lib"]
+}
+```
+
+**Import resolution:**
+```wren
+import "player" for Player  // Searches: ./src/player.wren, ./lib/player.wren
+import "math" for Vector    // Searches: ./src/math.wren, ./lib/math.wren
+```
+
+The LSP searches each directory in order until it finds a matching file.
+
+### Named Module Imports
+
+Named modules provide exact mappings from import names to files:
+
+**Configuration:**
+```json wren-lsp.json
+{
+  "modules": [
+    "./src",
+    {
+      "input": "./dome/modules/input.wren"
+    },
+    {
+      "graphics": "./dome/modules/graphics.wren"
+    }
+  ]
+}
+```
+
+**Importing named modules:**
+```wren src/game.wren
+import "input" for Keyboard
+import "graphics" for Canvas, Color
+```
+
+Named modules take priority over directory-based resolution.
+
+## Configuring Module Paths
+
+### Path Delimiter Configuration
+
+By default, Wren LSP uses `/` as the path separator. For projects using dotted imports (common in some frameworks), configure a custom delimiter:
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": ["./src"],
+  "resolvers": [
+    {
+      "type": "path",
+      "roots": ["./src"],
+      "delimiter": "."
+    }
+  ]
+}
+```
+
+Now imports like `"game.physics"` resolve to `src/game/physics.wren`.
+
+<CodeGroup>
+```wren Slash Delimiter (default)
+import "game/physics" for PhysicsEngine
+// Resolves to: src/game/physics.wren
+```
+
+```wren Dot Delimiter
+import "game.physics" for PhysicsEngine
+// Resolves to: src/game/physics.wren
+```
+</CodeGroup>
+
+### Multiple Root Directories
+
+You can configure multiple root directories for module resolution:
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "resolvers": [
+    {
+      "type": "path",
+      "roots": ["./src", "./vendor", "./lib"],
+      "delimiter": "/"
+    }
+  ]
+}
+```
+
+Imports are searched in order: `src` → `vendor` → `lib`.
+
+<Tip>
+If you specify `resolvers`, you must explicitly configure them. The default resolver is only used when no resolvers are defined.
+</Tip>
+
+## Cross-File Navigation Features
+
+Wren LSP provides powerful navigation features for multi-file projects:
+
+### Go to Definition
+
+Click on an imported symbol or use "Go to Definition" to jump to its source:
+
+```wren src/main.wren
+import "player" for Player  // Ctrl+Click on "Player" jumps to its definition
+
+var p = Player.new()  // Ctrl+Click on "Player" jumps to class definition
+```
+
+Works for:
+- Classes imported from other modules
+- Methods defined in other files
+- Variables and fields
+
+### Find References
+
+Find all usages of a symbol across your project:
+
+1. Place cursor on a class, method, or variable
+2. Use "Find References" command
+3. See all files where the symbol is used
+
+### Hover Information
+
+Hover over an import or symbol to see:
+- File path where it's defined
+- Type information
+- Documentation comments (if available)
+
+```wren
+import "player" for Player
+//                  ^^^^^^ Hover shows: "Defined in src/player.wren"
+```
+
+### Workspace Symbols
+
+Search for classes and methods across your entire project:
+
+1. Open symbol search (usually `Ctrl+T` or `Cmd+T`)
+2. Type a class or method name
+3. Jump directly to its definition, even in a different file
+
+### Document Outline
+
+View the structure of any Wren file:
+- Classes
+- Constructors
+- Methods
+- Foreign methods
+
+Navigate large files by clicking symbols in the outline.
+
+## Import Best Practices
+
+### Organize Imports at the Top
+
+```wren
+import "player" for Player
+import "enemy" for Enemy, Boss
+import "ui" for HUD, Menu
+
+class Game {
+  // ...
+}
+```
+
+### Use Relative Imports for Local Files
+
+For files in the same module or subsystem, use relative imports:
+
+```wren src/game/player.wren
+import "./inventory" for Inventory
+import "./stats" for Stats
+```
+
+### Use Named Modules for Framework Code
+
+For stable APIs like DOME, use named modules:
+
+```json wren-lsp.json
+{
+  "modules": [
+    {
+      "input": "/usr/local/dome/modules/input.wren"
+    },
+    {
+      "graphics": "/usr/local/dome/modules/graphics.wren"
+    }
+  ]
+}
+```
+
+### Avoid Absolute Paths in Imports
+
+Instead of hardcoding absolute paths:
+
+```wren
+// ❌ Avoid
+import "/Users/me/project/src/player" for Player
+```
+
+Use module configuration:
+
+```wren
+// ✅ Better
+import "player" for Player
+```
+
+## Troubleshooting Import Issues
+
+### Import Not Found
+
+If an import isn't resolved:
+
+<Steps>
+  <Step title="Check the file exists">
+    Verify the `.wren` file exists at the expected path.
+  </Step>
+
+  <Step title="Check module configuration">
+    Ensure the directory is listed in `modules`:
+    
+    ```json
+    {
+      "modules": ["./src", "./lib"]
+    }
+    ```
+  </Step>
+
+  <Step title="Check relative path syntax">
+    Relative imports must start with `./` or `../`:
+    
+    ```wren
+    import "./player" for Player  // ✅ Correct
+    import "player" for Player    // ❌ Wrong for relative import
+    ```
+  </Step>
+
+  <Step title="Verify delimiter configuration">
+    If using dotted imports, ensure delimiter is set:
+    
+    ```json
+    {
+      "resolvers": [
+        {
+          "type": "path",
+          "delimiter": "."
+        }
+      ]
+    }
+    ```
+  </Step>
+</Steps>
+
+### Go to Definition Not Working
+
+If navigation features aren't working:
+
+1. **Ensure import resolves correctly** - Fix any import errors first
+2. **Check the exported symbol** - Verify the class/function is in the `for` clause
+3. **Reload the LSP** - Sometimes restarting the language server helps
+
+### Performance with Large Projects
+
+For projects with many files:
+
+- Keep `modules` directories focused (don't include unnecessary directories)
+- Use named modules for frequently-imported framework code
+- Consider splitting very large projects into separate workspace roots
+
+## Example: DOME Game Project
+
+Here's a complete example for a DOME game:
+
+```
+my-game/
+├── wren-lsp.json
+├── src/
+│   ├── main.wren
+│   ├── player.wren
+│   └── enemy.wren
+└── lib/
+    └── utils.wren
+```
+
+**Configuration:**
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": [
+    "./src",
+    "./lib",
+    {
+      "input": "/Users/me/.local/share/dome/modules/input.wren"
+    },
+    {
+      "graphics": "/Users/me/.local/share/dome/modules/graphics.wren"
+    }
+  ],
+  "extends": ["/Users/me/.local/share/dome"]
+}
+```
+
+**Usage:**
+```wren src/main.wren
+import "input" for Keyboard
+import "graphics" for Canvas, Color
+import "player" for Player
+import "./enemy" for Enemy
+
+class Game {
+  construct new() {
+    _player = Player.new()
+    _enemy = Enemy.new()
+  }
+
+  update() {
+    if (Keyboard.isKeyDown("left")) {
+      _player.moveLeft()
+    }
+  }
+
+  draw(alpha) {
+    Canvas.cls()
+    _player.draw()
+    _enemy.draw()
+  }
+}
+
+var Main = Game.new()
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workspace Setup" icon="folder-gear" href="/guides/workspace-setup">
+    Learn more about configuring your workspace
+  </Card>
+  <Card title="Custom Resolvers" icon="puzzle-piece" href="/guides/custom-resolvers">
+    Build custom import resolution logic with plugins
+  </Card>
+</CardGroup>

@@ -1,0 +1,199 @@
+---
+title: Zed Setup
+description: Configure Wren LSP for Zed editor
+---
+
+Set up Wren language support in Zed with the official Wren LSP extension.
+
+## Prerequisites
+
+Ensure you have the `wren-lsp` binary installed and available in your `PATH`. You can download it from the [releases page](https://github.com/jossephus/wren-lsp/releases).
+
+## Installation
+
+<Tip>
+Zed supports Wren through an extension that integrates the wren-lsp language server.
+</Tip>
+
+<Steps>
+  <Step title="Open Extensions">
+    Open the Extensions view in Zed:
+    - Menu: `Zed → Extensions`
+    - Command Palette: `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Linux) → "Extensions"
+    - Keyboard shortcut: `Cmd+Shift+X` (macOS) or `Ctrl+Shift+X` (Linux)
+  </Step>
+
+  <Step title="Install Wren extension">
+    Search for "Wren" in the Extensions view and install the Wren LSP extension.
+
+    The extension provides:
+    - Syntax highlighting using tree-sitter-wren
+    - Integration with the wren-lsp language server
+    - Support for all LSP features
+  </Step>
+
+  <Step title="Ensure wren-lsp is installed">
+    The extension requires the `wren-lsp` binary to be installed on your system. Verify it's in your PATH:
+
+    ```bash
+    which wren-lsp
+    ```
+
+    If not found, download it from the releases page and add it to your PATH.
+  </Step>
+</Steps>
+
+## Configuration
+
+### Extension Details
+
+The Wren extension is configured with the following settings (from `extension.toml`):
+
+```toml
+id = "wren-lsp"
+name = "Wren"
+description = "Wren language support with wren-lsp integration."
+version = "0.0.1"
+repository = "https://github.com/jossephus/wren-lsp"
+
+[language_servers.wren-lsp]
+name = "wren-lsp"
+languages = ["Wren"]
+
+[grammars.wren]
+repository = "https://github.com/jossephus/tree-sitter-wren"
+```
+
+### Custom Server Path
+
+If you need to specify a custom path to the `wren-lsp` binary, you can configure it in your Zed settings.
+
+Open settings: `Cmd+,` (macOS) or `Ctrl+,` (Linux), then add:
+
+```json settings.json
+{
+  "lsp": {
+    "wren-lsp": {
+      "binary": {
+        "path": "/path/to/wren-lsp"
+      }
+    }
+  }
+}
+```
+
+### Language-Specific Settings
+
+You can customize Wren-specific editor settings:
+
+```json
+{
+  "languages": {
+    "Wren": {
+      "tab_size": 2,
+      "format_on_save": "off",
+      "show_inline_completions": true
+    }
+  }
+}
+```
+
+## Available Features
+
+The Wren extension in Zed provides comprehensive language support:
+
+- **Syntax Highlighting** - Powered by tree-sitter-wren
+- **Diagnostics** - Real-time syntax and semantic error checking
+- **Autocompletion** - Intelligent code completion
+- **Hover Documentation** - Type information on hover
+- **Go to Definition** - Navigate to symbol definitions
+- **Find References** - Find all references to a symbol
+- **Rename Symbol** - Refactor symbol names across files
+- **Document Symbols** - Outline view and quick navigation
+- **Signature Help** - Function parameter hints
+- **Document Highlights** - Highlight related symbols
+- **Code Actions** - Quick fixes and refactoring suggestions
+- **Workspace Symbols** - Search symbols across your project
+- **Folding Ranges** - Code folding support
+- **Inlay Hints** - Inline type annotations
+
+## Verify Installation
+
+<Steps>
+  <Step title="Open a Wren file">
+    Create or open a `.wren` file in Zed.
+  </Step>
+
+  <Step title="Check language indicator">
+    Look at the bottom-right of the editor window. It should show "Wren" as the active language.
+  </Step>
+
+  <Step title="Test LSP features">
+    Verify that LSP features are working:
+    - Start typing to see autocompletion suggestions
+    - Hover over identifiers to see type information
+    - Check that syntax errors appear inline
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<Note>
+If you encounter issues:
+
+1. Verify `wren-lsp` is installed and executable
+2. Check the Zed log for errors: `Cmd+Shift+P` → "Open Log"
+3. Restart Zed after installing or updating the binary
+4. Ensure you're using the latest version of the Wren extension
+</Note>
+
+### Check LSP Status
+
+To view the status of the language server:
+
+1. Open the Command Palette: `Cmd+Shift+P` or `Ctrl+Shift+P`
+2. Type "LSP: Show Server Status"
+3. Look for "wren-lsp" in the list of active servers
+
+### Enable Debug Logging
+
+To troubleshoot LSP issues, you can enable verbose logging in your settings:
+
+```json
+{
+  "lsp": {
+    "wren-lsp": {
+      "initialization_options": {
+        "logLevel": "debug"
+      }
+    }
+  }
+}
+```
+
+## Tips
+
+- Use `Cmd+P` (macOS) or `Ctrl+P` (Linux) to quickly open files
+- Use `Cmd+Shift+O` (macOS) or `Ctrl+Shift+O` (Linux) to navigate symbols in the current file
+- Use `Cmd+T` (macOS) or `Ctrl+T` (Linux) to search symbols across your entire workspace
+- Enable breadcrumbs for better navigation context
+- Customize your theme and appearance: `Zed → Settings → Theme`
+
+### Recommended Settings
+
+For an optimal Wren development experience:
+
+```json
+{
+  "languages": {
+    "Wren": {
+      "tab_size": 2,
+      "preferred_line_length": 100,
+      "soft_wrap": "preferred_line_length"
+    }
+  },
+  "inlay_hints": {
+    "enabled": true
+  }
+}
+```

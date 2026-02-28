@@ -1,0 +1,378 @@
+---
+title: Architecture Overview
+description: High-level architecture of Wren LSP
+---
+
+Wren LSP is built in Zig and follows a modular architecture that separates parsing, analysis, and LSP protocol handling.
+
+## High-Level Architecture
+
+```
+┌─────────────┐
+│   Editor    │
+└──────┬──────┘
+       │ LSP Protocol (JSON-RPC)
+       ▼
+┌─────────────────────────────────┐
+│       LSP Handler               │
+│  (src/lsp.zig, src/main.zig)   │
+│                                 │
+│  • Protocol message routing     │
+│  • Document management          │
+│  • Workspace coordination       │
+└──────┬──────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────┐
+│       Document Layer            │
+│    (src/lsp/Document.zig)       │
+│                                 │
+│  • Source file representation   │
+│  • Symbol table                 │
+│  • Import/export tracking       │
+└──────┬──────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────┐
+│        Wrenalyzer               │
+│   (src/wrenalyzer/*.zig)        │
+│                                 │
+│  • Lexer → Parser → AST         │
+│  • Semantic analysis            │
+│  • Type inference               │
+└──────┬──────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────┐
+│    Resolution System            │
+│  (src/resolution/*.zig)         │
+│                                 │
+│  • Module resolution            │
+│  • Import path mapping          │
+│  • Configurable resolvers       │
+└─────────────────────────────────┘
+```
+
+## Core Components
+
+### 1. LSP Handler
+
+**Location:** `src/main.zig`, `src/lsp.zig`
+
+The LSP handler is the entry point and protocol coordinator:
+
+- **Transport Layer:** Handles stdin/stdout communication with the editor
+- **Message Routing:** Dispatches LSP requests to appropriate handlers
+- **State Management:** Maintains open documents, workspace folders, and resolver chains
+
+<CodeGroup>
+```zig main.zig
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
+    // Set up stdio transport
+    var stdio = lsp.Transport.Stdio.init(
+        &read_buffer,
+        std.fs.File.stdin(),
+        std.fs.File.stdout(),
+    );
+
+    // Initialize handler and run server
+    var handler = lsp_handler.Handler.init(allocator, &stdio.transport);
+    try lsp.basic_server.run(allocator, &stdio.transport, &handler, ...);
+}
+```
+
+```zig Handler structure
+pub const Handler = struct {
+    gpa: std.mem.Allocator,
+    transport: *lsp.Transport,
+    files: std.StringHashMapUnmanaged(Document),
+    offset_encoding: offsets.Encoding,
+    config_loader: ConfigLoader,
+    resolver_chains: std.StringHashMapUnmanaged(ResolverChain),
+    // ...
+};
+```
+</CodeGroup>
+
+**Key Responsibilities:**
+- Handle `initialize` and manage client capabilities
+- Process `textDocument/*` notifications and requests
+- Coordinate cross-file analysis (imports, references)
+- Manage module resolution configuration
+
+### 2. Document Layer
+
+**Location:** `src/lsp/Document.zig`
+
+Represents a parsed and analyzed Wren source file:
+
+```zig
+pub const Document = struct {
+    module: ast.Module,           // Parsed AST
+    src: [:0]const u8,           // Source text
+    source_file: *SourceFile,    // Line/column mapping
+    parser: *Parser,             // Parser instance
+    reporter: Reporter,          // Diagnostic reporter
+    symbols: ArrayListUnmanaged(SymbolInfo),  // Symbol table
+    refs: ArrayListUnmanaged(ResolvedRef),    // Reference graph
+    exports: StringHashMapUnmanaged(ExportInfo), // Exported symbols
+};
+```
+
+**Features:**
+- Maintains parsed AST and symbol table
+- Tracks references between identifiers and declarations
+- Exports symbol information for cross-file analysis
+- Provides helper methods for position-based queries
+
+### 3. Wrenalyzer
+
+**Location:** `src/wrenalyzer/`
+
+The core analysis engine for Wren source code. Wrenalyzer is a self-contained module that can be used independently of the LSP.
+
+#### Lexer (`lexer.zig`)
+
+Tokenizes Wren source code:
+
+```zig
+pub const Lexer = struct {
+    source: []const u8,
+    start: usize,
+    current: usize,
+    line: usize,
+    // ...
+
+    pub fn scanToken(self: *Lexer) Token { ... }
+};
+```
+
+#### Parser (`parser.zig`)
+
+Builds an Abstract Syntax Tree (AST) from tokens:
+
+- **Recursive descent parser** following Wren's grammar
+- **Error recovery** to provide diagnostics for incomplete code
+- **Metadata support** for Wren's `#` and `#!` attribute system
+
+#### AST (`ast.zig`)
+
+Defines the node types for Wren's syntax tree:
+
+<CodeGroup>
+```zig Statements
+pub const Stmt = union(enum) {
+    ClassStmt: ClassStmt,
+    VarStmt: VarStmt,
+    ImportStmt: ImportStmt,
+    ExprStmt: ExprStmt,
+    // ...
+};
+```
+
+```zig Expressions
+pub const Expr = union(enum) {
+    BinaryExpr: BinaryExpr,
+    CallExpr: CallExpr,
+    FieldExpr: FieldExpr,
+    LiteralExpr: LiteralExpr,
+    // ...
+};
+```
+</CodeGroup>
+
+#### Resolver (`resolver.zig`)
+
+Performs semantic analysis:
+
+- **Scope tracking:** Maintains nested scopes for variables and classes
+- **Symbol resolution:** Links identifier uses to their declarations
+- **Type inference:** Infers types for variables based on initializers
+- **Reference tracking:** Builds a graph of symbol references
+
+```zig
+pub const Resolver = struct {
+    scope: Scope,
+    reporter: *Reporter,
+    refs_out: ?*ArrayListUnmanaged(ResolvedRef),
+    import_symbols: ?*const StringHashMapUnmanaged(ImportSymbolInfo),
+    // ...
+};
+```
+
+**Semantic Checks:**
+- Undefined variable references
+- Duplicate declarations in the same scope
+- Invalid field access (instance vs static)
+- Constructor and method validation
+
+#### Scope (`scope.zig`)
+
+Manages symbol tables and builtin definitions:
+
+- **Nested scopes:** Block, function, class, and module scopes
+- **Builtin types:** `String`, `List`, `Map`, `Fiber`, etc.
+- **Builtin methods:** Type-specific methods (e.g., `String.count`, `List.add`)
+
+### 4. Resolution System
+
+**Location:** `src/resolution/`
+
+Maps import strings to file URIs and provides module contents.
+
+#### ConfigLoader (`config.zig`)
+
+Loads `wren-lsp.json` configuration files:
+
+```json
+{
+  "modules": [
+    { "name": "raylib", "path": "/usr/local/lib/wren/raylib.wren" },
+    { "directory": "./lib" }
+  ],
+  "diagnostics": {
+    "severity": "warning"
+  }
+}
+```
+
+#### ResolverChain (`resolver.zig`)
+
+Chains multiple resolution strategies:
+
+1. **Named modules:** Direct name → path mappings
+2. **Directory modules:** Scan configured directories
+3. **Relative imports:** Resolve `./foo` relative to importer
+4. **Builtin modules:** `random`, `meta`, etc.
+
+```zig
+pub const ResolveRequest = struct {
+    importer_uri: []const u8,
+    import_string: []const u8,
+    project_root: []const u8,
+};
+
+pub const ResolveResult = struct {
+    uri: ?[]const u8,
+    source: ?[]const u8,  // For builtins
+};
+```
+
+<Note>
+  The resolution system allows Wren LSP to support custom module systems without hardcoding paths.
+</Note>
+
+## Data Flow
+
+### Document Open/Change
+
+<Steps>
+  <Step title="Editor sends textDocument/didOpen or didChange">
+    LSP handler receives the notification with document URI and content.
+  </Step>
+
+  <Step title="Create or update Document">
+    - Lexer tokenizes the source
+    - Parser builds the AST
+    - Reporter collects syntax errors
+  </Step>
+
+  <Step title="Semantic analysis">
+    - Resolver walks the AST
+    - Builds symbol table
+    - Resolves references
+    - Infers types
+    - Reports semantic errors
+  </Step>
+
+  <Step title="Send diagnostics">
+    LSP handler publishes syntax and semantic diagnostics to the editor.
+  </Step>
+</Steps>
+
+### Completion Request
+
+<Steps>
+  <Step title="Editor sends textDocument/completion">
+    Request includes document URI and cursor position.
+  </Step>
+
+  <Step title="Determine completion context">
+    - Member access (after `.`)?
+    - Import path completion?
+    - Import symbol completion?
+    - General identifier completion?
+  </Step>
+
+  <Step title="Query appropriate source">
+    - **Member access:** Check builtin methods, class methods, or inferred type methods
+    - **Import path:** Scan configured module directories
+    - **Import symbol:** Parse imported module and extract exported symbols
+    - **Identifier:** Return symbols in current scope
+  </Step>
+
+  <Step title="Return completion items">
+    LSP handler formats results as `CompletionItem[]` and sends response.
+  </Step>
+</Steps>
+
+### Go to Definition
+
+<Steps>
+  <Step title="Editor sends textDocument/definition">
+    Request includes document URI and cursor position.
+  </Step>
+
+  <Step title="Find identifier at position">
+    Document layer locates the token at the cursor.
+  </Step>
+
+  <Step title="Look up reference in symbol table">
+    Resolver's reference graph maps the use to its declaration token.
+  </Step>
+
+  <Step title="Return location">
+    LSP handler converts the declaration token to a `Location` (URI + range).
+  </Step>
+</Steps>
+
+## Key Design Decisions
+
+### Why Zig?
+
+- **Performance:** Fast parsing and analysis for responsive IDE features
+- **Memory control:** Explicit allocators prevent leaks in long-running server
+- **Cross-compilation:** Easy to build for multiple platforms
+- **Simplicity:** No hidden control flow or implicit allocations
+
+### Wrenalyzer as a Module
+
+The parser and analyzer are separated from the LSP handler:
+
+- **Reusability:** Wrenalyzer can be used for linting, code generation, or other tools
+- **Testing:** Parser and semantic analysis can be tested independently
+- **Clarity:** Clean separation between language semantics and protocol handling
+
+### Import Resolution Configurability
+
+Rather than hardcoding module paths, Wren LSP uses `wren-lsp.json` configuration:
+
+- **Flexibility:** Supports diverse project structures
+- **Compatibility:** Works with Wren CLI, custom embeddings, and game engines
+- **Extensibility:** New resolution strategies can be added without changing core code
+
+<Warning>
+  Wren's module system is deliberately minimal. The LSP's resolution system is designed to be adaptable to different embedding environments.
+</Warning>
+
+## Extension Points
+
+If you're modifying or extending Wren LSP:
+
+- **Add LSP features:** Implement new handlers in `src/lsp.zig`
+- **Improve analysis:** Extend `Resolver` in `src/wrenalyzer/resolver.zig`
+- **Custom resolvers:** Add strategies to `ResolverChain` in `src/resolution/resolver.zig`
+- **New builtins:** Update `src/resolution/builtins.zig` or `src/wrenalyzer/scope.zig`

@@ -1,0 +1,213 @@
+---
+title: Building from Source
+description: How to build Wren LSP from source
+---
+
+This guide covers building Wren LSP from source, including prerequisites, build commands, and installation.
+
+## Prerequisites
+
+<Steps>
+  <Step title="Install Zig">
+    Wren LSP requires **Zig 0.15.2** or later. The minimum version is specified in `build.zig.zon`.
+
+    Download Zig from [ziglang.org/download](https://ziglang.org/download/).
+
+    Verify your installation:
+    ```bash
+    zig version
+    # Should output: 0.15.2 or later
+    ```
+  </Step>
+
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/jossephus/wren-lsp.git
+    cd wren-lsp
+    ```
+  </Step>
+</Steps>
+
+## Build Commands
+
+Wren LSP uses Zig's build system. All commands are run from the project root.
+
+### Standard Build
+
+Build the LSP server:
+
+```bash
+zig build
+```
+
+This compiles the `wren-lsp` executable and places it in `zig-out/bin/`.
+
+<Note>
+  The build system automatically fetches dependencies specified in `build.zig.zon`, including the `lsp-kit` library.
+</Note>
+
+### Build with Optimization
+
+<CodeGroup>
+```bash Debug (default)
+zig build
+```
+
+```bash Release
+zig build -Doptimize=ReleaseFast
+```
+
+```bash Small Binary
+zig build -Doptimize=ReleaseSmall
+```
+
+```bash Safe Release
+zig build -Doptimize=ReleaseSafe
+```
+</CodeGroup>
+
+### Available Build Steps
+
+The build system provides several specialized targets:
+
+#### Test Wrenalyzer
+
+Build and run the test wrenalyzer (development tool):
+
+```bash
+zig build test
+```
+
+Or just build without running:
+
+```bash
+zig build -Dskip-run=true test
+```
+
+#### Run Tests
+
+Run the parser test suite against Wren test files:
+
+```bash
+zig build test-wren
+```
+
+Run LSP feature tests:
+
+```bash
+zig build test-lsp
+```
+
+#### WASM Module
+
+Build the WebAssembly playground module:
+
+```bash
+zig build wasm
+```
+
+This creates `wren-playground.wasm` and copies it to `docs/playground/` for the interactive documentation.
+
+<Warning>
+  The WASM build target is specifically for the documentation playground and is compiled with `ReleaseSmall` optimization for size.
+</Warning>
+
+#### Code Formatting
+
+Format all Zig source files:
+
+```bash
+zig build fmt
+```
+
+#### Run the Server
+
+Build and run the LSP server directly:
+
+```bash
+zig build run
+```
+
+<Note>
+  Running the server directly without an editor client will wait for LSP protocol messages on stdin. This is primarily useful for debugging.
+</Note>
+
+## Installation
+
+### System-wide Installation
+
+After building, copy the binary to a location in your PATH:
+
+```bash
+sudo cp zig-out/bin/wren-lsp /usr/local/bin/
+```
+
+Verify the installation:
+
+```bash
+wren-lsp --version
+```
+
+### Local Installation
+
+For development or testing, you can use the binary directly from `zig-out/bin/`:
+
+```bash
+export PATH="$PWD/zig-out/bin:$PATH"
+```
+
+### Editor Configuration
+
+Once installed, configure your editor to use `wren-lsp`. See the [Editor Setup](/editors/neovim) guide for instructions.
+
+## Build Artifacts
+
+Successful builds produce:
+
+- `zig-out/bin/wren-lsp` - Main LSP server executable
+- `zig-out/bin/test-wrenalyzer` - Test executable for the analyzer
+- `zig-out/bin/test-runner` - Parser test runner
+- `zig-out/bin/wren-playground.wasm` - WASM module (when using `zig build wasm`)
+
+## Dependencies
+
+Wren LSP has one external dependency:
+
+- **lsp-kit** - LSP protocol implementation from [zigtools/lsp-kit](https://github.com/zigtools/lsp-kit)
+
+The dependency is declared in `build.zig.zon` and automatically fetched during build.
+
+## Troubleshooting
+
+### Build Failures
+
+If the build fails, try:
+
+1. **Clean build artifacts:**
+   ```bash
+   rm -rf zig-out zig-cache
+   ```
+
+2. **Update Zig version:**
+   Ensure you're using Zig 0.15.2 or later:
+   ```bash
+   zig version
+   ```
+
+3. **Clear dependency cache:**
+   ```bash
+   rm -rf ~/.cache/zig
+   ```
+
+### Test Failures
+
+If tests fail:
+
+```bash
+# Run with verbose output
+zig build test-lsp -- --verbose
+```
+
+<Note>
+  The test suite includes parser tests that validate against the official Wren test suite, ensuring compatibility with the reference implementation.
+</Note>

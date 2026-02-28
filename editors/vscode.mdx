@@ -1,0 +1,141 @@
+---
+title: VS Code Setup
+description: Configure Wren LSP for Visual Studio Code
+---
+
+Get full Wren language support in VS Code with syntax highlighting, autocompletion, diagnostics, and more.
+
+## Installation
+
+<Tip>
+The easiest way to use Wren LSP in VS Code is to install the official extension from the Visual Studio Marketplace.
+</Tip>
+
+<Steps>
+  <Step title="Install from Marketplace">
+    Install the [Wren LSP extension](https://marketplace.visualstudio.com/items?itemName=jossephus.wren-lsp) from the Visual Studio Marketplace.
+
+    You can install it directly from VS Code:
+    1. Open the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`)
+    2. Search for "Wren LSP"
+    3. Click Install
+  </Step>
+
+  <Step title="Ensure wren-lsp is installed">
+    The extension requires the `wren-lsp` binary to be installed on your system. Download it from the [releases page](https://github.com/jossephus/wren-lsp/releases) and ensure it's available in your `PATH`.
+  </Step>
+</Steps>
+
+## Configuration
+
+The extension provides several configuration options that you can customize in your VS Code settings.
+
+### Settings
+
+Open your settings (`Ctrl+,` or `Cmd+,`) and search for "wren" to find these options:
+
+<CodeGroup>
+```json settings.json
+{
+  "wren.serverPath": "wren-lsp",
+  "wren.trace.server": "off"
+}
+```
+</CodeGroup>
+
+### Available Settings
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `wren.serverPath` | string | `"wren-lsp"` | Path to the wren-lsp executable. Use this if the binary is not in your PATH. |
+| `wren.trace.server` | enum | `"off"` | Traces the communication between VS Code and the language server. Options: `off`, `messages`, `verbose` |
+
+### Custom Server Path
+
+If `wren-lsp` is not in your `PATH`, you can specify the full path:
+
+```json
+{
+  "wren.serverPath": "/path/to/wren-lsp"
+}
+```
+
+On Windows:
+```json
+{
+  "wren.serverPath": "C:\\path\\to\\wren-lsp.exe"
+}
+```
+
+## Features
+
+The VS Code extension provides all the features supported by Wren LSP:
+
+- **Diagnostics** - Real-time syntax and semantic error checking
+- **Autocompletion** - Intelligent code completion for identifiers, members, builtins, and class methods
+- **Hover Documentation** - View type information and documentation on hover
+- **Go to Definition** - Jump to symbol definitions (`F12`)
+- **Find References** - Find all references to a symbol (`Shift+F12`)
+- **Rename Symbol** - Rename symbols across files (`F2`)
+- **Document Outline** - Navigate your code structure in the Outline view
+- **Signature Help** - View function signatures as you type
+- **Document Highlights** - Highlight all occurrences of a symbol
+- **Code Actions** - Quick fixes for common issues
+- **Workspace Symbols** - Search for symbols across your workspace (`Ctrl+T` or `Cmd+T`)
+- **Folding Ranges** - Fold/unfold code blocks
+- **Inlay Hints** - See type hints for variables inline
+
+## Verify Installation
+
+<Steps>
+  <Step title="Open a Wren file">
+    Create or open a `.wren` file in VS Code.
+  </Step>
+
+  <Step title="Check syntax highlighting">
+    Verify that syntax highlighting is working. The status bar should show "Wren" as the language.
+  </Step>
+
+  <Step title="Test LSP features">
+    Try typing some code and verify that:
+    - Autocompletion suggestions appear as you type
+    - Hover over identifiers to see type information
+    - Syntax errors are highlighted in the Problems panel
+  </Step>
+</Steps>
+
+## Commands
+
+The extension provides the following commands (accessible via `Ctrl+Shift+P` or `Cmd+Shift+P`):
+
+- **Wren LSP: Update Language Server** - Download and update the wren-lsp binary
+
+## Troubleshooting
+
+<Note>
+If the extension isn't working:
+
+1. Ensure `wren-lsp` is installed and in your `PATH`
+2. Check the Output panel (View → Output) and select "Wren LSP" from the dropdown
+3. Try setting `"wren.trace.server": "messages"` to see communication logs
+4. Restart VS Code after installing or updating the binary
+</Note>
+
+### Enable Debug Logging
+
+To troubleshoot issues, enable verbose logging:
+
+```json
+{
+  "wren.trace.server": "verbose"
+}
+```
+
+Then check the Output panel (View → Output → Wren LSP) for detailed logs.
+
+## Tips
+
+- Use `Ctrl+Space` (or `Cmd+Space`) to manually trigger autocompletion
+- Enable breadcrumbs to see the current symbol path: `View → Show Breadcrumbs`
+- Use the Outline view (`Ctrl+Shift+O` or `Cmd+Shift+O`) to quickly navigate within a file
+- Configure inlay hints display in Settings → Editor → Inlay Hints

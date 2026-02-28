@@ -1,0 +1,278 @@
+---
+title: Refactoring
+description: Safely rename and refactor Wren code
+---
+
+Wren LSP provides intelligent refactoring tools that help you maintain and improve your codebase with confidence.
+
+## Rename Symbol
+
+Rename variables, classes, and methods across your file with automatic reference updates.
+
+### How It Works
+
+<CardGroup cols={2}>
+  <Card title="Smart Detection" icon="magnifying-glass">
+    Finds all references to the symbol
+  </Card>
+  <Card title="Safe Updates" icon="shield-check">
+    Only renames the targeted symbol
+  </Card>
+  <Card title="Preview Changes" icon="eye">
+    See all changes before applying
+  </Card>
+  <Card title="Instant Apply" icon="bolt">
+    All references updated at once
+  </Card>
+</CardGroup>
+
+### How to Use
+
+1. Position cursor on the symbol to rename
+2. Trigger rename action:
+   - **VS Code**: `F2`
+   - **Neovim**: `<leader>rn` (or custom mapping)
+   - **Sublime Text**: Right-click → "Rename"
+   - **Helix**: `Space+r`
+3. Type the new name
+4. Press `Enter` to apply
+
+### What You Can Rename
+
+#### Local Variables
+
+```wren
+var count = 0
+//  ^^^^^ Rename to 'total'
+count = count + 1  // Automatically becomes: total = total + 1
+System.print(count)  // Becomes: System.print(total)
+```
+
+#### Class Names
+
+```wren
+class Person {
+//    ^^^^^^ Rename to 'User'
+  construct new(name) {
+    _name = name
+  }
+}
+
+var p = Person.new("Alice")  // Becomes: User.new("Alice")
+```
+
+#### Method Names
+
+```wren
+class Calculator {
+  static add(a, b) {
+  //     ^^^ Rename to 'sum'
+    return a + b
+  }
+}
+
+var result = Calculator.add(2, 3)  // Becomes: Calculator.sum(2, 3)
+```
+
+#### Parameters
+
+```wren
+class Greeter {
+  greet(name) {
+  //    ^^^^ Rename to 'person'
+    System.print("Hello, %(name)")  // Becomes: "Hello, %(person)"
+  }
+}
+```
+
+#### Instance Fields
+
+```wren
+class User {
+  construct new(name) {
+    _name = name
+    //^^^^ Rename to '_userName'
+  }
+  
+  greet() {
+    System.print(_name)  // Becomes: System.print(_userName)
+  }
+}
+```
+
+<Tip>
+  Rename validates the new name before applying - you'll get an error if the new name conflicts with an existing symbol.
+</Tip>
+
+### Scope Awareness
+
+Rename respects lexical scope:
+
+```wren
+var count = 10  // Global scope
+
+class Counter {
+  test() {
+    var count = 5  // Local scope
+    //  ^^^^^ Renaming this only affects local usage
+    System.print(count)  // Only this reference updates
+  }
+}
+
+System.print(count)  // Global 'count' unchanged
+```
+
+## Signature Help
+
+While typing method calls, see parameter information in real-time.
+
+### Trigger Events
+
+- Opening parenthesis `(`
+- Typing comma `,` between parameters
+- Manual trigger (`Ctrl+Shift+Space`)
+
+### Example
+
+```wren
+class MathUtils {
+  static lerp(start, end, t) {
+    return start + (end - start) * t
+  }
+}
+
+MathUtils.lerp(
+// Signature appears:
+// lerp(start, end, t)
+// Current parameter: start
+```
+
+As you type:
+
+```wren
+MathUtils.lerp(0,
+// lerp(start, end, t)
+// Current parameter: end
+```
+
+```wren
+MathUtils.lerp(0, 100,
+// lerp(start, end, t)
+// Current parameter: t
+```
+
+### Built-in Methods
+
+Signature help works for standard library methods too:
+
+```wren
+List.filled(
+// filled(size, element)
+// Creates a list with 'size' elements, each set to 'element'
+```
+
+<Note>
+  Signature help shows the expected parameter at each position, making it easier to call methods correctly.
+</Note>
+
+## Code Actions
+
+Quick fixes and refactorings available through the code action menu.
+
+### Available Actions
+
+- Fix import path errors
+- Remove unused imports
+- Add missing parameters
+- Simplify expressions
+
+### How to Use
+
+1. Position cursor on a diagnostic or symbol
+2. Open code actions:
+   - **VS Code**: `Ctrl+.` or click lightbulb
+   - **Neovim**: `:lua vim.lsp.buf.code_action()`
+   - **Sublime Text**: Right-click → "Code Actions"
+3. Select the action to apply
+
+### Example: Fix Import
+
+```wren
+import "./utils.wren" for Helper
+// Warning: Import path should not include '.wren' extension
+//
+// Code Action available:
+// ✓ Remove '.wren' extension
+```
+
+Applying the action:
+
+```wren
+import "./utils" for Helper
+```
+
+## Refactoring Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test First" icon="flask">
+    Run tests before and after renaming
+  </Card>
+  <Card title="Review Changes" icon="list-check">
+    Preview all modifications before applying
+  </Card>
+  <Card title="Commit Often" icon="code-commit">
+    Version control makes refactoring safer
+  </Card>
+  <Card title="One at a Time" icon="1">
+    Rename one symbol at a time for clarity
+  </Card>
+</CardGroup>
+
+## Rename Performance
+
+Rename operations are fast:
+
+- **< 50ms** for simple renames (< 10 references)
+- **< 200ms** for complex renames (> 50 references)
+- **Non-blocking** - Editor remains responsive
+
+## Current Limitations
+
+<Note>
+  Currently, rename works within a single file. Cross-file renaming is planned for future releases.
+</Note>
+
+### What's Not Supported Yet
+
+- Renaming imported symbols across files
+- Renaming files/modules
+- Extract method/variable refactorings
+- Inline variable/method refactorings
+
+### Workarounds
+
+For cross-file renames:
+1. Use your editor's project-wide search and replace
+2. Or manually update each file
+3. Verify with "Find References" before starting
+
+## Safety Guarantees
+
+Wren LSP's rename feature is designed to be safe:
+
+- Only renames exact symbol matches
+- Respects scope boundaries
+- Preserves string literals and comments
+- Validates new name before applying
+
+```wren
+var user = "Alice"
+// Renaming 'user' won't affect the string "Alice"
+
+System.print("The user is %(user)")
+// Only the interpolated 'user' is renamed, not the word in the string
+```
+
+<Tip>
+  Always review the preview of changes (if your editor supports it) before confirming a rename.
+</Tip>

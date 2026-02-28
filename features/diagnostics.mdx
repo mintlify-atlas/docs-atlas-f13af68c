@@ -1,0 +1,164 @@
+---
+title: Diagnostics
+description: Real-time error checking and warnings for Wren code
+---
+
+Wren LSP provides comprehensive diagnostic capabilities that catch errors as you type, helping you write correct code faster.
+
+## Syntax Diagnostics
+
+The LSP detects syntax errors immediately and displays them inline in your editor.
+
+### What It Catches
+
+<CardGroup cols={2}>
+  <Card title="Parse Errors" icon="code">
+    Missing braces, parentheses, or semicolons
+  </Card>
+  <Card title="Invalid Syntax" icon="xmark">
+    Malformed expressions and statements
+  </Card>
+  <Card title="Lexical Errors" icon="font">
+    Invalid tokens and character sequences
+  </Card>
+  <Card title="Structure Issues" icon="sitemap">
+    Incomplete class or method definitions
+  </Card>
+</CardGroup>
+
+### Examples
+
+```wren
+// Missing closing brace
+class Person {
+  construct new(name) {
+    _name = name
+  // Error: Expected '}'
+
+// Invalid method syntax
+class Calculator {
+  static add(a, b  // Error: Expected ')'
+    return a + b
+  }
+}
+```
+
+## Semantic Diagnostics
+
+Beyond syntax, the LSP performs semantic analysis to catch logical errors.
+
+### Variable Checking
+
+- Undefined variable usage
+- Duplicate variable declarations
+- Invalid scope access
+
+```wren
+class Example {
+  test() {
+    System.print(unknownVar)  // Error: Undefined variable
+  }
+}
+```
+
+### Import Validation
+
+The LSP validates import statements to ensure modules exist and exports are valid.
+
+<Tip>
+  Configure import diagnostics in your `wren-lsp.json` file to control severity levels.
+</Tip>
+
+#### Missing Imports
+
+```wren
+import "missing/module" for SomeClass  // Error: Cannot find import
+```
+
+#### Unknown Exports
+
+```wren
+import "./utils" for NonExistentClass  // Warning: Module does not export 'NonExistentClass'
+```
+
+#### File Extension Warnings
+
+```wren
+import "./utils.wren" for Helper  // Warning: Import path should not include '.wren' extension
+```
+
+## Code Actions (Quick Fixes)
+
+For some diagnostics, the LSP provides automatic fixes you can apply with a single action.
+
+### Available Quick Fixes
+
+- Remove unused imports
+- Fix common typos in keywords
+- Add missing method parameters
+- Correct import paths
+
+### How to Use
+
+When a diagnostic appears:
+
+1. Position your cursor on the error
+2. Trigger the code action menu (typically `Ctrl+.` or clicking the lightbulb)
+3. Select the suggested fix
+
+<Note>
+  Quick fix availability depends on the type of diagnostic and your editor's LSP support.
+</Note>
+
+## Configuration
+
+Customize diagnostic behavior in your `wren-lsp.json` configuration file:
+
+```json
+{
+  "diagnostics": {
+    "missing_import": "error",
+    "unknown_variable": "warning",
+    "extension_in_import": "warning"
+  }
+}
+```
+
+### Severity Levels
+
+- `"error"` - Shows as an error (red squiggle)
+- `"warning"` - Shows as a warning (yellow squiggle)
+- `"info"` - Shows as information (blue squiggle)
+- `"hint"` - Shows as a hint (subtle indicator)
+- `"none"` - Disables the diagnostic
+
+## Diagnostic Performance
+
+Diagnostics are computed efficiently:
+
+- Incremental parsing only re-analyzes changed code
+- Semantic checks run asynchronously
+- Results cache for unchanged files
+
+<Tip>
+  For large projects, diagnostics appear within milliseconds of typing.
+</Tip>
+
+## Real-Time Feedback
+
+Diagnostics update as you type:
+
+1. **Immediate** - Syntax errors appear instantly
+2. **Fast** - Semantic checks complete within 100ms
+3. **Non-blocking** - Editor remains responsive during analysis
+
+## Integration with Editors
+
+Diagnostics work seamlessly across all supported editors:
+
+- **VS Code** - Inline squiggles with hover tooltips
+- **Neovim** - Virtual text and floating windows
+- **Sublime Text** - Inline annotations
+- **Helix** - Inline diagnostics with navigation
+
+See [Editor Setup](/editors/neovim) for specific configuration.

@@ -1,0 +1,144 @@
+---
+title: "Introduction"
+description: "A full-featured Language Server Protocol implementation for the Wren programming language"
+keywords: ['wren', 'lsp', 'language server', 'code editor', 'autocomplete']
+---
+
+# Wren LSP
+
+A high-performance Language Server Protocol (LSP) implementation for Wren, bringing modern IDE features to your favorite code editor.
+
+<CardGroup cols={2}>
+  <Card title="Install Wren LSP" icon="download" href="/installation">
+    Download binaries for Linux, macOS, and Windows
+  </Card>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Get up and running in minutes
+  </Card>
+  <Card title="Editor setup" icon="code" href="/editors/neovim">
+    Configure Neovim, VS Code, Helix, or Sublime Text
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Customize module resolution and workspace settings
+  </Card>
+</CardGroup>
+
+## What is Wren LSP?
+
+Wren LSP provides intelligent code editing features for Wren files across multiple editors. Written in Zig for speed and reliability, it implements the Language Server Protocol to deliver a consistent development experience regardless of your editor choice.
+
+## Features
+
+Wren LSP includes comprehensive support for modern code editing:
+
+### Core navigation
+
+- **Go to definition** - Jump to where symbols are defined
+- **Find references** - Locate all uses of a symbol across your codebase
+- **Workspace symbols** - Search for classes, methods, and variables by name
+- **Document symbols** - View an outline of the current file structure
+
+### Code intelligence
+
+- **Completion** - Context-aware suggestions for identifiers, class members, built-in functions, and methods
+- **Hover** - View type information and documentation on hover
+- **Signature help** - See parameter information while calling functions
+- **Inlay hints** - Type annotations displayed inline for variables
+
+### Code quality
+
+- **Diagnostics** - Syntax errors and semantic warnings as you type
+- **Code actions** - Quick fixes for common issues
+- **Rename** - Safely rename symbols throughout your project
+
+### Editor integration
+
+- **Semantic tokens** - Rich syntax highlighting based on semantic meaning
+- **Document highlights** - Highlight related symbols in the current file
+- **Folding ranges** - Collapse and expand code blocks
+- **Selection range** - Smart selection expansion
+
+<Note>
+Most features work within a single file. Cross-module navigation (multi-file support) is under active development.
+</Note>
+
+## Why Wren LSP?
+
+<Columns cols={3}>
+  <div>
+    ### Fast
+    Built with Zig for native performance and minimal resource usage
+  </div>
+  <div>
+    ### Universal
+    Works with any editor that supports LSP - Neovim, VS Code, Helix, Sublime Text, and more
+  </div>
+  <div>
+    ### Complete
+    Implements 18+ LSP features for a rich editing experience
+  </div>
+</Columns>
+
+## Getting started
+
+Ready to enhance your Wren development workflow? Follow the quick start guide:
+
+<Steps>
+  <Step title="Install the LSP server">
+    Download the appropriate binary for your platform from the [installation page](/installation).
+  </Step>
+  <Step title="Configure your editor">
+    Set up your editor to use the `wren-lsp` binary. See [editor setup](/editors/neovim) for detailed instructions.
+  </Step>
+  <Step title="Start coding">
+    Open a `.wren` file and experience intelligent code completion, diagnostics, and navigation.
+  </Step>
+</Steps>
+
+## Example
+
+Here's what Wren code looks like with LSP features:
+
+```wren example.wren
+class Logger {
+  static info(message) {
+    System.print("[INFO] " + message)
+  }
+
+  static error(message) {
+    System.print("[ERROR] " + message)
+  }
+}
+
+class MathUtils {
+  static clamp(value, min, max) {
+    if (value < min) return min
+    if (value > max) return max
+    return value
+  }
+}
+
+// Type 'Logger.' to see completion suggestions
+// Hover over 'clamp' to see its signature
+// Use go-to-definition to jump to the class
+Logger.info("Clamped: %(MathUtils.clamp(15, 0, 10))")
+```
+
+With Wren LSP active, you'll get:
+
+- Autocompletion for `Logger.info` and `MathUtils.clamp`
+- Parameter hints showing `(value, min, max)` when calling `clamp`
+- Type information on hover
+- Instant syntax error detection
+- Quick navigation to symbol definitions
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation guide" icon="download" href="/installation">
+    Download and install Wren LSP for your platform
+  </Card>
+  <Card title="Quick start" icon="bolt" href="/quickstart">
+    Configure your editor and test LSP features
+  </Card>
+</CardGroup>

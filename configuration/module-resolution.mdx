@@ -1,0 +1,306 @@
+---
+title: Module Resolution
+description: Understand how Wren LSP resolves import statements to modules
+---
+
+Module resolution is the process of converting an import string into a concrete module identifier and file path. Wren LSP uses a flexible **resolver chain** to support different import conventions.
+
+## Import Statement Format
+
+Wren's `import` statement syntax:
+
+```wren
+import "module-name" for Class1, Class2
+```
+
+The string `"module-name"` is the **import string** that needs to be resolved.
+
+## Resolution Process
+
+When the LSP encounters an import, it:
+
+1. **Extracts the import string** from the import statement
+2. **Passes it through the resolver chain** in order
+3. **Returns the first successful resolution**
+4. **Reports a diagnostic** if no resolver succeeds
+
+Each resolver in the chain can:
+- **Resolve** the import (return a module identifier and optional file path)
+- **Skip** the import (pass to the next resolver)
+- **Stop** the chain (prevent fallback to remaining resolvers)
+
+<Note>
+Resolvers are tried in the order they appear in the `resolvers` configuration array.
+</Note>
+
+## The ResolveRequest
+
+Each resolver receives a request containing:
+
+<ParamField path="importer_uri" type="string">
+  The URI of the file containing the import statement.
+  
+  Example: `file:///home/user/project/src/main.wren`
+</ParamField>
+
+<ParamField path="import_string" type="string">
+  The raw import string from the source code.
+  
+  Example: `"./utils"` or `"game.physics"` or `"math"`
+</ParamField>
+
+<ParamField path="project_root" type="string">
+  The directory containing `wren-lsp.json`.
+  
+  Example: `/home/user/project`
+</ParamField>
+
+## The ResolveResult
+
+A successful resolution returns:
+
+<ParamField path="canonical_id" type="string" required>
+  Unique identifier for this module. Used to deduplicate imports.
+  
+  - For file-backed modules: `file:///absolute/path/to/module.wren`
+  - For virtual modules: `wren://builtin/modulename`
+  - For remote modules: Custom URI scheme
+</ParamField>
+
+<ParamField path="uri" type="string">
+  File URI if the module is backed by a file. The LSP will read source from this location.
+  
+  Can be `null` for virtual or embedded modules that provide source directly.
+</ParamField>
+
+<ParamField path="source" type="string">
+  Module source code. If provided, used directly instead of reading from URI.
+  
+  Used by the builtin resolver to provide Wren standard library modules.
+</ParamField>
+
+<ParamField path="kind" type="enum" default="file">
+  Module type for diagnostic policy:
+  
+  - `file`: File-backed module
+  - `virtual`: Generated or embedded module
+  - `remote`: Fetched from external source
+</ParamField>
+
+<ParamField path="diagnostics" type="object[]">
+  Optional diagnostics provided by the resolver.
+  
+  Each diagnostic has:
+  - `severity`: `"error"`, `"warning"`, `"info"`, or `"hint"`
+  - `message`: Diagnostic message text
+</ParamField>
+
+## Resolver Chain Behavior
+
+### Default Chain
+
+If no resolvers are configured, the default chain is:
+
+1. **Path resolver** - Resolves file-based imports
+2. **Builtin resolver** - Resolves Wren standard library modules
+
+### Custom Chain
+
+When you configure resolvers explicitly:
+
+```json
+{
+  "resolvers": [
+    { "type": "plugin", "library": "./custom.dylib" },
+    { "type": "path", "roots": ["./src"], "delimiter": "." }
+  ]
+}
+```
+
+The chain becomes:
+
+1. **Plugin resolver** - Your custom resolver
+2. **Path resolver** - File-based imports
+3. **Builtin resolver** - Automatically appended
+
+<Note>
+The builtin resolver is **always added last** unless explicitly disabled via `fallbackToBuiltin: false`.
+</Note>
+
+### Fallback Control
+
+Some resolvers support the `fallbackToBuiltin` option:
+
+<CodeGroup>
+```json With Fallback (Default)
+{
+  "resolvers": [
+    {
+      "type": "plugin",
+      "library": "./resolver.dylib",
+      "fallbackToBuiltin": true
+    }
+  ]
+}
+```
+
+```json Without Fallback
+{
+  "resolvers": [
+    {
+      "type": "plugin",
+      "library": "./resolver.dylib",
+      "fallbackToBuiltin": false
+    }
+  ]
+}
+```
+</CodeGroup>
+
+When `fallbackToBuiltin: false`:
+- If the resolver returns `null`, the chain **stops immediately**
+- Remaining resolvers (including builtin) are **not tried**
+- Useful when you want complete control over resolution
+
+## Import String Patterns
+
+Wren LSP recognizes different import patterns:
+
+### Relative Imports
+
+Imports starting with `./` or `../` are resolved relative to the importing file:
+
+```wren
+import "./utils" for Helper
+import "../shared/config" for Config
+```
+
+The path resolver handles these by:
+1. Getting the directory of the importing file
+2. Resolving the relative path from that directory
+3. Appending `.wren` extension if not present
+4. Checking if the file exists
+
+### Absolute Imports
+
+Absolute file paths are resolved directly:
+
+```wren
+import "/usr/local/lib/wren/math" for Vector
+```
+
+### Module Name Imports
+
+Imports without path indicators are treated as module names:
+
+```wren
+import "game.physics" for RigidBody
+import "math" for Vector
+```
+
+These are resolved by:
+1. Checking named modules first (exact match)
+2. Trying delimiter-based path resolution
+3. Falling back to builtin modules
+
+<Accordion title="Example: Delimiter-based resolution">
+With `delimiter: "."` configured:
+
+```wren
+import "game.physics" for RigidBody
+```
+
+The path resolver converts this to:
+1. Replace `.` with `/`: `game/physics`
+2. Search in roots: `./src/game/physics.wren`
+3. Return first existing file
+</Accordion>
+
+## Named Modules
+
+Named modules provide explicit mappings from import strings to files:
+
+```json
+{
+  "modules": [
+    { "config": "./lib/project_config.wren" },
+    { "io": "./deps/io_utils.wren" }
+  ]
+}
+```
+
+When you import:
+
+```wren
+import "config" for Settings
+```
+
+The resolver:
+1. Checks named modules for exact match
+2. Finds `"config"` mapped to `./lib/project_config.wren`
+3. Resolves relative to project root
+4. Returns the file URI
+
+<Note>
+Named modules take **priority over directory-based resolution**. If an import matches both a named module and a file in a search root, the named module wins.
+</Note>
+
+### Inheritance Behavior
+
+When configs are extended:
+
+```json Base config
+{
+  "modules": [
+    { "utils": "./base/utils.wren" }
+  ]
+}
+```
+
+```json Child config
+{
+  "extends": ["./base.json"],
+  "modules": [
+    { "utils": "./custom/utils.wren" }
+  ]
+}
+```
+
+The child's `utils` mapping **overrides** the parent's, because the resolver searches named modules from **last to first** (child wins).
+
+## Caching and Performance
+
+The LSP caches resolved modules to improve performance:
+
+- **Configuration cache**: Keyed by project root directory
+- **Module cache**: Keyed by canonical ID
+- **Cache invalidation**: Occurs when configuration file changes
+
+<Warning>
+Changes to `wren-lsp.json` require restarting the LSP or reloading the window to take effect.
+</Warning>
+
+## Debugging Resolution
+
+To debug resolution issues:
+
+1. **Check LSP logs** for resolver activity (src/resolution/resolver.zig:17)
+2. **Verify project root** detection
+3. **Test resolver order** by examining which resolves first
+4. **Confirm file paths** are normalized correctly
+
+Common issues:
+- Import resolves to wrong file: Check named module priority
+- Import not found: Verify roots configuration and file existence  
+- Circular imports: Check canonical ID deduplication
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Resolvers" icon="plug" href="/configuration/resolvers">
+    Configure specific resolver types
+  </Card>
+  <Card title="Configuration Overview" icon="gear" href="/configuration/overview">
+    Back to configuration basics
+  </Card>
+</CardGroup>

@@ -1,80 +1,274 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick start"
+description: "Get Wren LSP running in your editor in minutes"
+keywords: ['quickstart', 'getting started', 'setup', 'neovim', 'editor']
 ---
 
-## Get started in three steps
+# Quick start
 
-Get your documentation site running locally and make your first customization.
+Get Wren LSP up and running in your editor in just a few minutes.
 
-### Step 1: Set up your local environment
+## Prerequisites
+
+<Steps>
+  <Step title="Install Wren LSP">
+    Download and install the Wren LSP binary for your platform. See the [installation guide](/installation) for detailed instructions.
+
+    Verify the installation:
+    ```bash
+    wren-lsp --help
+    ```
+  </Step>
+
+  <Step title="Choose your editor">
+    Wren LSP works with any editor that supports the Language Server Protocol. This guide uses Neovim as an example, but you can use VS Code, Helix, Sublime Text, or any other LSP-compatible editor.
+
+    See the [editor setup guide](/editors/neovim) for configuration instructions for other editors.
+  </Step>
+</Steps>
+
+## Neovim setup
+
+This example shows how to configure Wren LSP in Neovim with `nvim-lspconfig`.
+
+<Steps>
+  <Step title="Register the Wren filetype">
+    Add Wren filetype detection to your Neovim configuration:
+
+    ```lua init.lua
+    vim.filetype.add({
+      extension = {
+        wren = "wren",
+      },
+    })
+    ```
+
+    This tells Neovim to recognize `.wren` files.
+  </Step>
+
+  <Step title="Configure the LSP client">
+    If you're using `nvim-lspconfig` (recommended), add this to your configuration:
+
+    ```lua init.lua
+    local lspconfig = require("lspconfig")
+    local configs = require("lspconfig.configs")
+
+    if not configs.wren_lsp then
+      configs.wren_lsp = {
+        default_config = {
+          cmd = { "wren-lsp" },
+          filetypes = { "wren" },
+          root_dir = lspconfig.util.root_pattern("wren-lsp.json", ".git"),
+        },
+      }
+    end
+
+    lspconfig.wren_lsp.setup({})
+    ```
+
+    This configuration:
+    - Sets the command to launch the LSP server
+    - Activates for `.wren` files
+    - Detects the project root by looking for `wren-lsp.json` or `.git`
+  </Step>
+
+  <Step title="Optional: Configure without lspconfig">
+    If you prefer not to use `nvim-lspconfig`, you can configure the LSP client directly:
+
+    ```lua init.lua
+    vim.filetype.add({
+      extension = {
+        wren = "wren",
+      },
+    })
+
+    vim.api.nvim_create_autocmd("FileType", {
+      group = vim.api.nvim_create_augroup("wren", {}),
+      pattern = "wren",
+      callback = function()
+        vim.lsp.start({
+          name = "Wren LSP",
+          cmd = { "wren-lsp" },
+          root_dir = vim.loop.cwd(),
+          flags = { exit_timeout = 1000 },
+        })
+      end,
+    })
+    ```
+  </Step>
+
+  <Step title="Restart Neovim">
+    Restart Neovim for the changes to take effect.
+  </Step>
+</Steps>
+
+## Test the setup
+
+Create a test file to verify that Wren LSP is working:
+
+<Steps>
+  <Step title="Create a Wren file">
+    Create a new file called `test.wren`:
+
+    ```bash
+    touch test.wren
+    nvim test.wren
+    ```
+  </Step>
+
+  <Step title="Add sample code">
+    Type the following Wren code:
+
+    ```wren test.wren
+    class Calculator {
+      static add(a, b) {
+        return a + b
+      }
+
+      static multiply(a, b) {
+        return a * b
+      }
+    }
+
+    System.print(Calculator.add(5, 3))
+    ```
+  </Step>
+
+  <Step title="Test LSP features">
+    Try these LSP features to verify everything works:
+
+    **Completion**
+    - Type `Calculator.` and wait for suggestions
+    - You should see `add` and `multiply` methods
+
+    **Go to definition**
+    - Place your cursor on `Calculator` in the `System.print` line
+    - Press `gd` (or your editor's go-to-definition keybind)
+    - Your cursor should jump to the class definition
+
+    **Hover information**
+    - Hover over the `add` method call
+    - You should see parameter information
+
+    **Diagnostics**
+    - Add a syntax error like `class Broken {`
+    - You should see an error diagnostic
+  </Step>
+</Steps>
+
+## What LSP features are available?
+
+Once configured, Wren LSP provides these features automatically:
+
+<CardGroup cols={2}>
+  <Card title="Code completion" icon="wand-magic-sparkles">
+    Context-aware suggestions for identifiers, class members, and built-in functions
+  </Card>
+  <Card title="Diagnostics" icon="triangle-exclamation">
+    Real-time syntax and semantic error detection
+  </Card>
+  <Card title="Go to definition" icon="arrow-right">
+    Jump to where symbols are defined
+  </Card>
+  <Card title="Find references" icon="magnifying-glass">
+    Locate all uses of a symbol
+  </Card>
+  <Card title="Hover information" icon="circle-info">
+    View type and signature information
+  </Card>
+  <Card title="Rename symbol" icon="pen">
+    Safely rename variables and functions
+  </Card>
+  <Card title="Document outline" icon="list">
+    View file structure with classes and methods
+  </Card>
+  <Card title="Code actions" icon="lightbulb">
+    Quick fixes for common issues
+  </Card>
+</CardGroup>
+
+## Configure module resolution
+
+For projects with custom module resolution, create a `wren-lsp.json` configuration file in your project root:
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": ["./src"],
+  "resolvers": [
+    {
+      "type": "path",
+      "roots": ["./src"],
+      "delimiter": "/"
+    }
+  ]
+}
+```
+
+This configuration:
+- Defines where module files are located
+- Specifies how import paths are resolved
+- Supports multiple resolver types: `path` and `plugin`
+
+<Info>
+Learn more about module resolution in the [configuration guide](/configuration/module-resolution).
+</Info>
+
+## Troubleshooting
 
 <AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
+  <Accordion title="LSP not starting">
+    Verify that `wren-lsp` is in your PATH:
+    ```bash
+    which wren-lsp  # Linux/macOS
+    where wren-lsp  # Windows
+    ```
+
+    Check your editor's LSP logs for error messages. In Neovim:
+    ```vim
+    :LspLog
+    ```
   </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
+
+  <Accordion title="No completions or diagnostics">
+    Ensure the LSP client has started:
+    - In Neovim: `:LspInfo`
+    - Verify that `wren_lsp` is attached to the buffer
+
+    Check that your file has the `.wren` extension and is recognized as a Wren file:
+    ```vim
+    :set filetype?
+    ```
+  </Accordion>
+
+  <Accordion title="Module imports not resolving">
+    Create a `wren-lsp.json` file in your project root with the appropriate resolver configuration. See the [configuration guide](/configuration/overview) for details.
+  </Accordion>
+
+  <Accordion title="macOS blocks the binary">
+    macOS Gatekeeper may prevent the binary from running. Allow it in:
+    **System Settings** → **Privacy & Security** → **Allow Anyway**
+
+    Or remove the quarantine attribute:
+    ```bash
+    xattr -d com.apple.quarantine /usr/local/bin/wren-lsp
+    ```
   </Accordion>
 </AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Editor setup" icon="code" href="/editors/vscode">
+    Configure VS Code, Helix, Sublime Text, and other editors
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Customize module resolution and workspace settings
+  </Card>
+  <Card title="Features" icon="sparkles" href="/features/overview">
+    Explore all available LSP features in depth
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/development/building">
+    Help improve Wren LSP
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

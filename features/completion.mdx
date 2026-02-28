@@ -1,0 +1,254 @@
+---
+title: Code Completion
+description: Intelligent code suggestions for Wren development
+---
+
+Wren LSP provides context-aware code completion that helps you write code faster and discover available APIs.
+
+## Completion Types
+
+<CardGroup cols={2}>
+  <Card title="Identifiers" icon="font">
+    Variables, classes, and functions in scope
+  </Card>
+  <Card title="Members" icon="circle-dot">
+    Methods and properties on objects
+  </Card>
+  <Card title="Builtins" icon="cube">
+    Standard library types and methods
+  </Card>
+  <Card title="Imports" icon="file-import">
+    Module paths and exported symbols
+  </Card>
+</CardGroup>
+
+## Identifier Completion
+
+Get suggestions for all symbols available in the current scope.
+
+### What's Included
+
+- Local variables and parameters
+- Class names
+- Method names
+- Imported symbols
+- Built-in types (`Num`, `String`, `List`, etc.)
+
+### Example
+
+```wren
+class Calculator {
+  static add(a, b) {
+    var result = a + b
+    // Type 're' and get suggestions:
+    // - result
+    // - return
+    return result
+  }
+}
+```
+
+<Tip>
+  Completion is **case-sensitive** and filters as you type.
+</Tip>
+
+## Member Completion
+
+Press `.` after an object to see available methods and properties.
+
+### Built-in Type Methods
+
+The LSP knows about all standard library methods:
+
+```wren
+var text = "hello"
+text.  // Suggestions:
+       // - count
+       // - contains(_)
+       // - startsWith(_)
+       // - endsWith(_)
+       // - indexOf(_)
+       // - split(_)
+       // ... and more
+
+var numbers = [1, 2, 3]
+numbers.  // Suggestions:
+          // - count
+          // - add(_)
+          // - clear()
+          // - insert(_,_)
+          // - removeAt(_)
+          // ... and more
+```
+
+### Class Static Methods
+
+Access static methods and constructors:
+
+```wren
+class Person {
+  construct new(name) {
+    _name = name
+  }
+  
+  static all() { /* ... */ }
+  static find(id) { /* ... */ }
+}
+
+Person.  // Suggestions:
+         // - new(_)
+         // - all()
+         // - find(_)
+```
+
+### Class Instance Methods
+
+For typed variables, get instance method suggestions:
+
+```wren
+class Person {
+  construct new(name) { _name = name }
+  
+  greet() { System.print("Hello, I'm %(_name)") }
+  getName() { _name }
+}
+
+var person = Person.new("Alice")
+person.  // Suggestions:
+         // - greet()
+         // - getName()
+```
+
+<Note>
+  Instance method completion works best when the LSP can infer the variable's type from initialization.
+</Note>
+
+## Import Path Completion
+
+Get suggestions for module paths as you type import statements.
+
+### Relative Imports
+
+```wren
+import "./  // Suggestions show files in current directory:
+            // - utils
+            // - models/user
+            // - helpers/math
+```
+
+### Configured Module Directories
+
+If you've configured module directories in `wren-lsp.json`, they appear in suggestions:
+
+```json
+{
+  "modules": [
+    { "directory": "./lib" },
+    { "name": "http", "path": "./vendor/http.wren" }
+  ]
+}
+```
+
+```wren
+import "  // Suggestions include:
+          // - http (configured module)
+          // - Files from ./lib
+          // - Relative paths
+```
+
+<Tip>
+  The LSP automatically adds `.wren` extension - just type the module name.
+</Tip>
+
+## Import Symbol Completion
+
+When importing specific symbols, get suggestions for what's available:
+
+```wren
+import "./models" for   // Suggestions:
+                        // - Person
+                        // - Product
+                        // - Order
+
+import "./utils" for Helper,   // After comma, suggestions exclude already imported:
+                               // - formatDate
+                               // - parseJson
+                               // (Helper not shown again)
+```
+
+### How It Works
+
+1. LSP analyzes the target module
+2. Finds all exported classes and variables
+3. Filters out already-imported symbols
+4. Suggests remaining exports
+
+## System Class Methods
+
+Built-in `System` class methods are always available:
+
+```wren
+System.  // Suggestions:
+         // - print(_)
+         // - printAll(_)
+         // - write(_)
+         // - writeAll(_)
+         // - clock
+         // - gc()
+```
+
+## Attribute Completion
+
+For runtime attributes (Wren's reflection API), get completion on attribute access:
+
+```wren
+#! deprecated
+class OldAPI {
+  #! experimental
+  test() {}
+}
+
+OldAPI.attributes.  // Suggestions:
+                    // - self (class-level attributes)
+                    // - methods (method-level attributes)
+
+OldAPI.attributes.methods.  // Suggestions:
+                            // - test() (methods with runtime attributes)
+```
+
+## Completion Performance
+
+Completions appear instantly:
+
+- **< 50ms** for local symbols
+- **< 100ms** for member completions
+- **< 200ms** for cross-file import completions
+
+## Trigger Characters
+
+Completion automatically triggers after typing:
+
+- `.` (dot) for member access
+- Start of import statement
+- Any identifier character
+
+You can also manually trigger completion (typically `Ctrl+Space`).
+
+<Note>
+  Trigger behavior may vary slightly by editor. See [Editor Setup](/editors/neovim) for details.
+</Note>
+
+## Completion Item Details
+
+Each completion item includes:
+
+- **Label** - The symbol name
+- **Kind** - Icon indicating type (variable, method, class, etc.)
+- **Detail** - Additional context (method signature, type info)
+- **Documentation** - Hover information (when available)
+
+## Limitations
+
+- Type inference works best for simple assignments
+- Complex control flow may limit instance method suggestions
+- Cross-file completions require the imported file to be accessible

@@ -1,0 +1,174 @@
+---
+title: Helix Setup
+description: Configure Wren LSP for Helix editor
+---
+
+Set up Wren LSP in Helix to get language support including diagnostics, autocompletion, and navigation features.
+
+## Prerequisites
+
+Ensure you have the `wren-lsp` binary installed and available in your `PATH`. You can download it from the [releases page](https://github.com/jossephus/wren-lsp/releases).
+
+## Setup
+
+<Steps>
+  <Step title="Locate your Helix config">
+    Find your Helix configuration directory:
+    - Linux/macOS: `~/.config/helix/`
+    - Windows: `%AppData%\helix\`
+  </Step>
+
+  <Step title="Edit languages.toml">
+    Open or create `~/.config/helix/languages.toml` and add the following configuration:
+
+    ```toml languages.toml
+    [language-server.wren-lsp]
+    command = "wren-lsp"
+
+    [[language]]
+    name = "wren"
+    scope = "text.wren"
+    file-types = ["wren"]
+    comment-token = "//"
+    language-servers = ["wren-lsp"]
+    ```
+  </Step>
+
+  <Step title="Restart Helix">
+    Close and reopen Helix for the changes to take effect.
+  </Step>
+</Steps>
+
+## Configuration Options
+
+### Custom Server Path
+
+If `wren-lsp` is not in your `PATH`, specify the full path to the binary:
+
+```toml
+[language-server.wren-lsp]
+command = "/path/to/wren-lsp"
+```
+
+### Additional Language Settings
+
+You can customize additional language settings for Wren:
+
+```toml
+[[language]]
+name = "wren"
+scope = "text.wren"
+file-types = ["wren"]
+comment-token = "//"
+indent = { tab-width = 2, unit = "  " }
+language-servers = ["wren-lsp"]
+```
+
+### LSP Server Configuration
+
+Helix allows you to pass configuration to the LSP server:
+
+```toml
+[language-server.wren-lsp]
+command = "wren-lsp"
+
+[language-server.wren-lsp.config]
+# Add server-specific configuration here if needed
+```
+
+## Verify Installation
+
+<Steps>
+  <Step title="Open a Wren file">
+    Open any `.wren` file in Helix:
+    ```bash
+    hx example.wren
+    ```
+  </Step>
+
+  <Step title="Check LSP status">
+    Use the `:lsp-status` command to verify that the Wren LSP server is running and connected.
+  </Step>
+
+  <Step title="Test LSP features">
+    Try using LSP features:
+    - Hover over a symbol (default: `Space + k`)
+    - Go to definition (default: `g + d`)
+    - View diagnostics (should appear inline automatically)
+  </Step>
+</Steps>
+
+## Available LSP Features
+
+Helix supports the following Wren LSP features:
+
+- **Diagnostics** - Syntax and semantic error checking
+- **Completion** - Code completion with `Ctrl+x` (insert mode)
+- **Hover** - Type information with `Space + k`
+- **Go to Definition** - `g + d`
+- **References** - `g + r`
+- **Rename** - `Space + r`
+- **Document Symbols** - `Space + s`
+- **Workspace Symbols** - `Space + S`
+- **Signature Help** - Shown automatically in insert mode
+- **Inlay Hints** - Type hints displayed inline
+
+## Troubleshooting
+
+<Note>
+If the LSP server doesn't start:
+
+1. Verify `wren-lsp` is executable: `chmod +x wren-lsp`
+2. Check that the binary is in your `PATH`: `which wren-lsp`
+3. Look for error messages when opening a `.wren` file
+4. Check the Helix log file for errors
+</Note>
+
+### View LSP Logs
+
+To debug LSP issues, check the Helix log:
+
+```bash
+# View the log file location
+hx --health wren
+
+# On Linux/macOS
+tail -f ~/.cache/helix/helix.log
+
+# On Windows
+Get-Content $env:LOCALAPPDATA\helix\helix.log -Wait
+```
+
+### Health Check
+
+Run the health check command to verify language server setup:
+
+```bash
+hx --health wren
+```
+
+This will show whether the `wren-lsp` binary is found and properly configured.
+
+## Tips
+
+- Use `Space + k` to view hover information while browsing code
+- `Space + /` opens a fuzzy symbol picker for the current document
+- `Space + S` searches symbols across the entire workspace
+- Enable inlay hints in your `config.toml`:
+  ```toml
+  [editor.lsp]
+  display-inlay-hints = true
+  ```
+
+- Customize diagnostic display:
+  ```toml
+  [editor.lsp]
+  display-messages = true
+  display-inlay-hints = true
+  ```
+
+- Configure automatic formatting on save:
+  ```toml
+  [editor]
+  auto-format = true
+  ```

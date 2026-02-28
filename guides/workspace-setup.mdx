@@ -1,0 +1,206 @@
+---
+title: 'Workspace Setup'
+description: 'How to set up a Wren workspace for use with Wren LSP'
+---
+
+## Overview
+
+Wren LSP uses a `wren-lsp.json` configuration file to understand your project structure and control how modules are resolved. This guide shows you how to create and configure a workspace.
+
+## Finding the Configuration File
+
+When you open a Wren file, the LSP searches upward from the file's directory to find `wren-lsp.json`. The directory containing this file becomes the **project root**.
+
+If no configuration file is found, the LSP uses default settings with minimal module resolution support.
+
+## Creating a Basic Configuration
+
+<Steps>
+  <Step title="Create wren-lsp.json">
+    Create a `wren-lsp.json` file at the root of your project:
+
+    ```json
+    {
+      "version": 1,
+      "modules": ["./src"]
+    }
+    ```
+
+    This tells the LSP to look for modules in the `src` directory.
+  </Step>
+
+  <Step title="Verify the setup">
+    Open any `.wren` file in your project. The LSP will now use your configuration to resolve imports.
+  </Step>
+</Steps>
+
+## Recommended Project Structure
+
+### Simple Single-Directory Project
+
+For small projects with all code in one directory:
+
+```
+my-project/
+├── wren-lsp.json
+└── src/
+    ├── main.wren
+    ├── player.wren
+    └── enemy.wren
+```
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": ["./src"]
+}
+```
+
+### Multi-Directory Project
+
+For projects with separate source and library directories:
+
+```
+my-project/
+├── wren-lsp.json
+├── src/
+│   └── game.wren
+└── lib/
+    ├── math.wren
+    └── utils.wren
+```
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": ["./src", "./lib"]
+}
+```
+
+### Project with Named Modules
+
+You can map specific module names to files:
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": [
+    "./lib",
+    {
+      "config": "./config/settings.wren"
+    },
+    {
+      "constants": "./data/constants.wren"
+    }
+  ]
+}
+```
+
+With this configuration:
+- `import "config"` resolves to `./config/settings.wren`
+- `import "constants"` resolves to `./data/constants.wren`
+- Other imports like `import "utils"` search in `./lib/utils.wren`
+
+<Note>
+Named modules take priority over directory-based resolution. If multiple named modules use the same name, the last one in the array wins.
+</Note>
+
+## Configuration for Different Use Cases
+
+### Game Development with DOME
+
+For DOME projects that need to resolve framework imports:
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": ["./src", "./lib"],
+  "extends": ["/path/to/dome/installation"]
+}
+```
+
+The `extends` field lets you inherit module definitions from DOME's installation directory.
+
+### Library Development
+
+For libraries with examples and tests:
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": [
+    "./src",
+    "./examples",
+    "./test"
+  ]
+}
+```
+
+### Monorepo Setup
+
+Use `extends` to share common configuration across packages:
+
+**Root configuration (`wren-lsp.json`):**
+```json
+{
+  "version": 1,
+  "modules": ["./shared"]
+}
+```
+
+**Package configuration (`packages/core/wren-lsp.json`):**
+```json
+{
+  "version": 1,
+  "extends": ["../../wren-lsp.json"],
+  "modules": ["./src"]
+}
+```
+
+<Tip>
+When using `extends`, module paths are resolved relative to each config file's directory, not the project root. Later entries override earlier ones.
+</Tip>
+
+## Diagnostic Configuration
+
+Control the severity of different diagnostic messages:
+
+```json wren-lsp.json
+{
+  "version": 1,
+  "modules": ["./src"],
+  "diagnostics": {
+    "missingImport": "error",
+    "extensionInImport": "warning",
+    "unknownVariable": "error"
+  }
+}
+```
+
+Available severity levels:
+- `"error"` - Shows as an error (default for `unknownVariable`)
+- `"warning"` - Shows as a warning (default for `missingImport`)
+- `"info"` - Shows as information (default for `extensionInImport`)
+- `"hint"` - Shows as a hint
+- `"none"` - Disabled
+
+## Configuration Schema Reference
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | `number` | Configuration version (currently `1`) |
+| `extends` | `string[]` | Paths to parent configurations to inherit from |
+| `modules` | `array` | Module directories or named module mappings |
+| `resolvers` | `array` | Custom resolver configurations (see [Custom Resolvers](/guides/custom-resolvers)) |
+| `diagnostics` | `object` | Diagnostic severity settings |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Multi-File Projects" icon="folder-tree" href="/guides/multi-file-projects">
+    Learn how imports work across files and how to navigate between modules
+  </Card>
+  <Card title="Custom Resolvers" icon="puzzle-piece" href="/guides/custom-resolvers">
+    Create custom resolver plugins for advanced module resolution
+  </Card>
+</CardGroup>

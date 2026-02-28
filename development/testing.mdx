@@ -1,0 +1,454 @@
+---
+title: Testing Guide
+description: How to run and write tests for Wren LSP
+---
+
+Wren LSP includes multiple test suites to ensure correctness of parsing, semantic analysis, and LSP features.
+
+## Running Tests
+
+### LSP Feature Tests
+
+Test LSP-specific functionality (completion, hover, go-to-definition, etc.):
+
+```bash
+zig build test-lsp
+```
+
+These tests are defined in `src/lsp_test.zig` and use Zig's built-in test framework.
+
+<Note>
+  LSP tests validate that the server correctly handles LSP protocol requests and produces expected responses.
+</Note>
+
+### Wren Parser Tests
+
+Run the parser against the official Wren test suite:
+
+```bash
+zig build test-wren
+```
+
+This executes the test runner (`src/wrenalyzer/test_runner.zig`), which:
+
+1. Locates Wren test files (typically in a `test/` directory)
+2. Parses each file
+3. Validates the AST structure
+4. Checks for expected parse errors or success
+
+<CodeGroup>
+```bash Run parser tests
+zig build test-wren
+```
+
+```bash Skip execution (build only)
+zig build -Dskip-run=true test-wren
+```
+</CodeGroup>
+
+### Test Wrenalyzer
+
+Build and run the test wrenalyzer (development tool for ad-hoc testing):
+
+```bash
+zig build test
+```
+
+This builds the `test-wrenalyzer` executable, which can be used to parse individual Wren files and inspect the AST.
+
+## Test Types
+
+Wren LSP has three categories of tests:
+
+### 1. Unit Tests
+
+**Location:** Inline in source files (Zig convention)
+
+Unit tests are embedded in `.zig` files using the `test` keyword:
+
+```zig
+test "lexer tokenizes keywords" {
+    const src = "class Foo {}";
+    var lexer = Lexer.init(src);
+    
+    const tok1 = lexer.scanToken();
+    try std.testing.expectEqual(Token.Tag.classKeyword, tok1.type);
+    
+    const tok2 = lexer.scanToken();
+    try std.testing.expectEqual(Token.Tag.name, tok2.type);
+}
+```
+
+**Run unit tests for a module:**
+
+```bash
+zig test src/wrenalyzer/lexer.zig
+```
+
+### 2. Integration Tests
+
+**Location:** `src/lsp_test.zig`, `src/resolution/test_resolution.zig`
+
+Integration tests validate multiple components working together:
+
+- **Document parsing and analysis:** Full pipeline from source to diagnostics
+- **LSP requests:** Simulated editor interactions
+- **Module resolution:** Configuration loading and import resolution
+
+**Example LSP test structure:**
+
+```zig
+test "completion after dot provides class methods" {
+    const src =
+        \\class Foo {
+        \\  bar() { }
+        \\  static baz() { }
+        \\}
+        \\Foo.
+    ;
+    
+    var doc = try Document.init(allocator, src, .wren);
+    defer doc.deinit(allocator);
+    
+    // Simulate completion request at position after "Foo."
+    const items = try getCompletionItems(&doc, 4, 4);
+    
+    // Should include static methods and constructors
+    try expectContains(items, "baz");
+    try expectNotContains(items, "bar"); // instance method
+}
+```
+
+### 3. Parser Conformance Tests
+
+**Location:** `src/wrenalyzer/test_runner.zig`
+
+These tests validate compatibility with the official Wren implementation by parsing the reference test suite.
+
+**Test file structure:**
+
+```
+test/
+├── language/
+│   ├── class.wren
+│   ├── function.wren
+│   └── variable.wren
+├── syntax/
+│   ├── comments.wren
+│   └── strings.wren
+└── ...
+```
+
+Each `.wren` file may include expectations:
+
+```wren
+// expect: <output>
+// expect error: <error message>
+```
+
+The test runner parses these files and validates that the parser behavior matches expectations.
+
+## Writing New Tests
+
+### Adding LSP Feature Tests
+
+<Steps>
+  <Step title="Open src/lsp_test.zig">
+    LSP feature tests are collected in this file.
+  </Step>
+
+  <Step title="Write a test case">
+    ```zig
+    test "hover shows type information" {
+        const src =
+            \\var x = 42
+            \\x
+        ;
+        
+        var doc = try Document.init(std.testing.allocator, src, .wren);
+        defer doc.deinit(std.testing.allocator);
+        
+        const hover_info = try getHover(&doc, 1, 0);
+        
+        try std.testing.expectEqualStrings("Num", hover_info.type_name);
+    }
+    ```
+  </Step>
+
+  <Step title="Run the test">
+    ```bash
+    zig build test-lsp
+    ```
+  </Step>
+</Steps>
+
+### Adding Parser Tests
+
+To test new syntax or edge cases:
+
+<Steps>
+  <Step title="Create a test Wren file">
+    Add a `.wren` file to the test suite (or use the test runner directly).
+    
+    ```wren
+    // Test: Attributes on classes
+    #group("foo")
+    #!runtime
+    class Example {
+      method() {}
+    }
+    ```
+  </Step>
+
+  <Step title="Run the parser test suite">
+    ```bash
+    zig build test-wren
+    ```
+  </Step>
+
+  <Step title="Debug failures">
+    Use the test wrenalyzer to inspect the AST:
+    
+    ```bash
+    zig build test
+    ./zig-out/bin/test-wrenalyzer test/language/attributes.wren
+    ```
+  </Step>
+</Steps>
+
+### Adding Unit Tests
+
+For testing individual functions or small modules:
+
+<Steps>
+  <Step title="Add test block to the source file">
+    ```zig
+    test "scope.declare adds symbol" {
+        var scope = Scope.init(std.testing.allocator);
+        defer scope.deinit();
+        
+        try scope.declare("foo", token, .variable);
+        
+        const sym = scope.lookup("foo");
+        try std.testing.expect(sym != null);
+        try std.testing.expectEqual(Scope.Symbol.Kind.variable, sym.?.kind);
+    }
+    ```
+  </Step>
+
+  <Step title="Run tests for the module">
+    ```bash
+    zig test src/wrenalyzer/scope.zig
+    ```
+  </Step>
+</Steps>
+
+## Test Utilities
+
+Wren LSP provides helper functions for testing:
+
+### Document Helpers
+
+```zig
+// Create a test document
+var doc = try Document.init(allocator, source_code, .wren);
+defer doc.deinit(allocator);
+
+// Position-based queries
+const offset = doc.positionToOffset(line, character);
+const symbols = doc.getSymbolsInScope();
+```
+
+### Reporter Helpers
+
+```zig
+var reporter = Reporter.init(allocator);
+defer reporter.deinit();
+
+// Check for expected errors
+try std.testing.expect(reporter.hasErrors());
+try std.testing.expectEqual(1, reporter.errors.items.len);
+```
+
+### Assertion Helpers
+
+```zig
+// Token equality
+try std.testing.expectEqual(Token.Tag.name, token.type);
+
+// String content
+try std.testing.expectEqualStrings("expected", actual);
+
+// AST node matching
+try std.testing.expect(node == .ClassStmt);
+```
+
+## Test Configuration
+
+### Skip Running Tests
+
+Build test executables without running them:
+
+```bash
+zig build -Dskip-run=true test-lsp
+```
+
+This is useful for CI environments where you want to build tests separately from execution.
+
+### Verbose Output
+
+For debugging test failures:
+
+```bash
+zig build test-lsp -- --verbose
+```
+
+<Note>
+  Test output is captured by default. Use `--verbose` to see detailed logs.
+</Note>
+
+## Continuous Integration
+
+When setting up CI for Wren LSP:
+
+<CodeGroup>
+```yaml GitHub Actions
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.15.2
+      
+      - name: Run LSP tests
+        run: zig build test-lsp
+      
+      - name: Run parser tests
+        run: zig build test-wren
+      
+      - name: Check formatting
+        run: zig build fmt && git diff --exit-code
+```
+
+```bash Local CI script
+#!/bin/bash
+set -e
+
+echo "Running LSP tests..."
+zig build test-lsp
+
+echo "Running parser tests..."
+zig build test-wren
+
+echo "Checking code formatting..."
+zig build fmt
+git diff --exit-code
+
+echo "All tests passed!"
+```
+</CodeGroup>
+
+## Debugging Test Failures
+
+### Print Debugging
+
+Zig's test framework captures stdout. Use `std.debug.print` for debugging:
+
+```zig
+test "example" {
+    const value = computeSomething();
+    std.debug.print("value = {d}\n", .{value});
+    try std.testing.expectEqual(42, value);
+}
+```
+
+### AST Inspection
+
+For parser issues, use the test wrenalyzer to dump the AST:
+
+```bash
+zig build test
+./zig-out/bin/test-wrenalyzer problematic_file.wren
+```
+
+### Isolate Tests
+
+Run a specific test by name:
+
+```bash
+zig test src/lsp_test.zig --test-filter "completion"
+```
+
+### Memory Leaks
+
+Zig's allocators can detect leaks in tests:
+
+```zig
+test "no leaks" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer {
+        const leaked = gpa.deinit();
+        try std.testing.expect(leaked == .ok);
+    }
+    
+    const allocator = gpa.allocator();
+    // ... test code ...
+}
+```
+
+<Warning>
+  Always use `defer` to ensure cleanup happens even if tests fail.
+</Warning>
+
+## Test Coverage
+
+Zig doesn't have built-in coverage tools, but you can track coverage manually:
+
+1. **LSP features:** Each LSP method should have at least one test
+2. **Parser:** All grammar rules should have positive and negative test cases
+3. **Resolver:** Common semantic errors should have tests
+4. **Edge cases:** Null checks, empty inputs, boundary conditions
+
+### Recommended Coverage
+
+- **Parser:** 90%+ of grammar rules
+- **Resolver:** All symbol kinds and scoping rules
+- **LSP handlers:** All implemented protocol methods
+- **Resolution:** Each resolver strategy
+
+## Best Practices
+
+<Steps>
+  <Step title="Test behavior, not implementation">
+    Focus on observable outcomes (diagnostics, completion items) rather than internal state.
+  </Step>
+
+  <Step title="Use descriptive test names">
+    ```zig
+    test "completion after dot on instance provides instance methods" { ... }
+    ```
+    Better than:
+    ```zig
+    test "completion test 3" { ... }
+    ```
+  </Step>
+
+  <Step title="Keep tests focused">
+    Each test should validate one specific behavior. Avoid mega-tests that check many things.
+  </Step>
+
+  <Step title="Use realistic code samples">
+    Test with code that resembles real Wren programs, not just isolated syntax.
+  </Step>
+
+  <Step title="Test error cases">
+    Don't just test the happy path. Ensure the parser and resolver handle invalid input gracefully.
+  </Step>
+</Steps>

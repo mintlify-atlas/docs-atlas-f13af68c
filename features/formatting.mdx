@@ -1,0 +1,325 @@
+---
+title: Formatting & Display
+description: Syntax highlighting, code folding, and visual enhancements
+---
+
+Wren LSP enhances your editing experience with rich visual features that make code easier to read and navigate.
+
+## Semantic Tokens
+
+Semantic syntax highlighting provides context-aware colorization beyond basic regex-based highlighting.
+
+### What It Highlights
+
+<CardGroup cols={2}>
+  <Card title="Types" icon="cube">
+    Classes and built-in types
+  </Card>
+  <Card title="Functions" icon="function">
+    Methods and function calls
+  </Card>
+  <Card title="Variables" icon="x">
+    Parameters, locals, and fields
+  </Card>
+  <Card title="Keywords" icon="key">
+    Language keywords with context
+  </Card>
+</CardGroup>
+
+### Token Types
+
+The LSP provides semantic information for:
+
+- **Classes** - User-defined and built-in class names
+- **Methods** - Function definitions and calls
+- **Variables** - Local variables, parameters, fields
+- **Properties** - Instance and static fields
+- **Keywords** - Language constructs
+- **Operators** - Arithmetic, comparison, logical
+- **Strings** - String literals and interpolation
+- **Numbers** - Numeric literals
+- **Comments** - Single and multi-line comments
+
+### Example Highlighting
+
+```wren
+class Calculator {
+//    ^^^^^^^^^^ - Class name (type)
+  static add(a, b) {
+//       ^^^ - Method name (function)
+//           ^ ^ - Parameters (variable)
+    return a + b
+//         ^^^^^ - Expression with variables and operator
+  }
+}
+
+var result = Calculator.add(2, 3)
+//  ^^^^^^ - Variable
+//           ^^^^^^^^^^ - Class reference (type)
+//                      ^^^ - Method call (function)
+//                          ^^^^ - Number literals
+```
+
+<Note>
+  Semantic highlighting appears different based on your editor theme. Colors and styles are theme-dependent.
+</Note>
+
+### Benefits Over Regex Highlighting
+
+- **Context-aware** - Same name colored differently based on usage
+- **Accurate** - No false positives from regex patterns  
+- **Dynamic** - Updates as you type
+- **Scope-sensitive** - Understands variable shadowing
+
+```wren
+class List {
+//    ^^^^ - Highlighted as class definition
+  // ...
+}
+
+var myList = List.new()
+//           ^^^^ - Highlighted as class reference (same color)
+var List = "oops"  // Different highlight - local variable
+//  ^^^^ - Overrides class name in this scope
+```
+
+## Inlay Hints
+
+Inlay hints show type information inline without cluttering your code.
+
+### Type Hints for Variables
+
+<Tip>
+  Inlay hints are subtle, ghosted text that appears in your editor. They're informational only and don't affect your code.
+</Tip>
+
+### Example
+
+```wren
+var numbers = [1, 2, 3]  /* : List */
+//  Hint shows inferred type
+
+var text = "hello"  /* : String */
+
+var count = 42  /* : Num */
+
+var person = Person.new("Alice")  /* : Person */
+```
+
+### When Hints Appear
+
+Type hints show when:
+- Variable type can be inferred from initialization
+- Type is non-obvious from context
+- Your editor has inlay hints enabled
+
+### Configuration
+
+Inlay hints can be configured in your editor:
+
+**VS Code**:
+```json
+{
+  "editor.inlayHints.enabled": true
+}
+```
+
+**Neovim** (with native LSP):
+```lua
+vim.lsp.inlay_hint.enable(true)
+```
+
+<Note>
+  Currently, inlay hints are disabled by default in Wren LSP. They may be enabled in future versions after further refinement.
+</Note>
+
+## Code Folding
+
+Collapse and expand code blocks to focus on what matters.
+
+### What Can Be Folded
+
+- Class definitions
+- Method bodies  
+- Block statements
+- Multi-line comments
+- Import groups
+
+### Example
+
+```wren
+class Calculator {  ▼
+  static add(a, b) {  ▼
+    return a + b
+  }
+  
+  static multiply(a, b) {  ▼
+    return a * b
+  }
+}
+```
+
+Folded view:
+
+```wren
+class Calculator {  ▶
+class Helper {  ▶
+var config = { ... }  ▶
+```
+
+### Folding Ranges
+
+The LSP automatically detects:
+- **Brace blocks** - `{ ... }`
+- **Class bodies** - Full class definition
+- **Method bodies** - Individual method implementations
+- **Comment blocks** - Sequential comment lines
+
+### How to Fold
+
+Folding controls vary by editor:
+
+- **VS Code**: Click gutter icons or use `Ctrl+Shift+[` / `Ctrl+Shift+]`
+- **Neovim**: `zc` (close fold), `zo` (open fold), `za` (toggle)
+- **Sublime Text**: `Ctrl+Shift+[` / `Ctrl+Shift+]`
+- **Helix**: `z` followed by navigation
+
+<Tip>
+  Use folding to get an overview of large files or focus on specific sections during editing.
+</Tip>
+
+## Hover Information
+
+Hover over symbols to see details without leaving your current context.
+
+### What Hover Shows
+
+- **Variables**: Type and declaration
+- **Classes**: Class signature
+- **Methods**: Signature with parameters
+- **Built-ins**: Documentation for standard library
+
+### Example
+
+```wren
+var numbers = [1, 2, 3]
+//  ^^^^^^^ Hover shows:
+//  Variable: numbers
+//  Type: List
+```
+
+```wren
+System.print("Hello")
+//     ^^^^^ Hover shows:
+//     print(object) - Prints object to stdout
+```
+
+```wren
+class Person {
+  construct new(name) { _name = name }
+}
+
+var p = Person.new("Alice")
+//      ^^^^^^ Hover shows:
+//      class Person
+//      
+//      construct new(name)
+```
+
+### Built-in Documentation
+
+Hover provides inline docs for Wren's standard library:
+
+```wren
+List.filled(10, 0)
+//   ^^^^^^ Hover shows:
+//   filled(size, element)
+//   Creates a new list with 'size' elements, all set to 'element'
+```
+
+## Selection Ranges
+
+Smart selection expansion based on syntax structure.
+
+### How It Works
+
+1. Start with cursor position
+2. Expand to smallest enclosing syntax node
+3. Continue expanding to larger nodes
+4. Can also shrink selection back
+
+### Selection Hierarchy
+
+```wren
+var result = calculator.add(x, y)
+```
+
+Expansion sequence:
+1. `x` - identifier
+2. `x, y` - argument list
+3. `add(x, y)` - method call
+4. `calculator.add(x, y)` - full call expression
+5. `calculator.add(x, y)` - assignment value
+6. `var result = calculator.add(x, y)` - full statement
+
+<Tip>
+  Selection ranges are perfect for quickly selecting logical units like method arguments, conditions, or entire statements.
+</Tip>
+
+## Document Formatting
+
+<Note>
+  Wren LSP currently does not provide automatic code formatting. Use external formatters like `wren-fmt` or configure editor-specific formatting rules.
+</Note>
+
+### Alternatives
+
+- Manual formatting following Wren style guide
+- Editor auto-indent features
+- External formatting tools (when available)
+
+## Visual Performance
+
+All visual features are optimized for performance:
+
+- **Semantic tokens**: Computed incrementally, < 50ms updates
+- **Folding ranges**: Cached, instant computation
+- **Hover info**: < 10ms response time
+- **Inlay hints**: Computed asynchronously, non-blocking
+
+## Editor-Specific Features
+
+### VS Code
+
+- Bracket pair colorization works with semantic tokens
+- Minimap shows semantic regions
+- Breadcrumb navigation uses document symbols
+
+### Neovim
+
+- Tree-sitter can complement LSP semantic tokens
+- Folding integrates with native fold commands
+- Hover works in floating windows
+
+### Sublime Text
+
+- Color schemes adapt to semantic tokens
+- Code folding uses LSP ranges
+- Hover appears in popups
+
+### Helix
+
+- Semantic highlighting integrates with themes
+- Native folding support
+- Inline hover information
+
+## Customization
+
+Most visual features can be customized through your editor:
+
+- **Color schemes** - Control semantic token colors
+- **Inlay hints style** - Font, color, position
+- **Folding icons** - Appearance and behavior
+- **Hover layout** - Window size and style
+
+See [Editor Setup](/editors/neovim) for editor-specific configuration guides.

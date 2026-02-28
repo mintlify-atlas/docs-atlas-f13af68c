@@ -1,0 +1,196 @@
+---
+title: "Installation"
+description: "Download and install Wren LSP on Linux, macOS, and Windows"
+keywords: ['install', 'download', 'setup', 'binary', 'wren-lsp']
+---
+
+# Installation
+
+Install Wren LSP by downloading pre-built binaries or building from source.
+
+## Download pre-built binaries
+
+The fastest way to get started is to download a pre-built binary for your platform.
+
+### GitHub releases
+
+Download the latest release from the [Wren LSP releases page](https://github.com/jossephus/wren-lsp/releases).
+
+<Tabs>
+  <Tab title="Linux">
+    Download the appropriate binary for your architecture:
+
+    **x86_64 (64-bit Intel/AMD)**
+    ```bash
+    curl -LO https://github.com/jossephus/wren-lsp/releases/latest/download/wren-lsp-linux-x86_64
+    chmod +x wren-lsp-linux-x86_64
+    sudo mv wren-lsp-linux-x86_64 /usr/local/bin/wren-lsp
+    ```
+
+    **aarch64 (64-bit ARM)**
+    ```bash
+    curl -LO https://github.com/jossephus/wren-lsp/releases/latest/download/wren-lsp-linux-aarch64
+    chmod +x wren-lsp-linux-aarch64
+    sudo mv wren-lsp-linux-aarch64 /usr/local/bin/wren-lsp
+    ```
+
+    Verify the installation:
+    ```bash
+    wren-lsp --help
+    ```
+  </Tab>
+
+  <Tab title="macOS">
+    Download the appropriate binary for your Mac:
+
+    **Apple Silicon (M1/M2/M3)**
+    ```bash
+    curl -LO https://github.com/jossephus/wren-lsp/releases/latest/download/wren-lsp-macos-aarch64
+    chmod +x wren-lsp-macos-aarch64
+    sudo mv wren-lsp-macos-aarch64 /usr/local/bin/wren-lsp
+    ```
+
+    **Intel Macs**
+    ```bash
+    curl -LO https://github.com/jossephus/wren-lsp/releases/latest/download/wren-lsp-macos-x86_64
+    chmod +x wren-lsp-macos-x86_64
+    sudo mv wren-lsp-macos-x86_64 /usr/local/bin/wren-lsp
+    ```
+
+    <Warning>
+    macOS may block the binary on first run due to Gatekeeper. Allow it in **System Settings** → **Privacy & Security**.
+    </Warning>
+
+    Verify the installation:
+    ```bash
+    wren-lsp --help
+    ```
+  </Tab>
+
+  <Tab title="Windows">
+    Download the appropriate binary:
+
+    **x86_64 (64-bit)**
+    ```powershell
+    Invoke-WebRequest -Uri https://github.com/jossephus/wren-lsp/releases/latest/download/wren-lsp-windows-x86_64.exe -OutFile wren-lsp.exe
+    ```
+
+    **aarch64 (ARM64)**
+    ```powershell
+    Invoke-WebRequest -Uri https://github.com/jossephus/wren-lsp/releases/latest/download/wren-lsp-windows-aarch64.exe -OutFile wren-lsp.exe
+    ```
+
+    Move the binary to a directory in your PATH, such as `C:\Windows\System32` or create a dedicated folder:
+
+    ```powershell
+    New-Item -Path "C:\Program Files\WrenLSP" -ItemType Directory -Force
+    Move-Item wren-lsp.exe "C:\Program Files\WrenLSP\"
+    ```
+
+    Add to PATH:
+    ```powershell
+    [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\WrenLSP", "Machine")
+    ```
+
+    Verify the installation:
+    ```powershell
+    wren-lsp --help
+    ```
+  </Tab>
+</Tabs>
+
+## Available binaries
+
+Wren LSP provides binaries for the following platforms:
+
+| Platform | Architecture | Binary name |
+|----------|--------------|-------------|
+| Linux | x86_64 | `wren-lsp-linux-x86_64` |
+| Linux | aarch64 | `wren-lsp-linux-aarch64` |
+| macOS | x86_64 (Intel) | `wren-lsp-macos-x86_64` |
+| macOS | aarch64 (Apple Silicon) | `wren-lsp-macos-aarch64` |
+| Windows | x86_64 | `wren-lsp-windows-x86_64.exe` |
+| Windows | aarch64 | `wren-lsp-windows-aarch64.exe` |
+
+## Build from source
+
+Building from source requires [Zig](https://ziglang.org/download/) installed on your system.
+
+<Steps>
+  <Step title="Install Zig">
+    Download and install Zig from the [official website](https://ziglang.org/download/). Wren LSP builds with Zig's latest stable release.
+
+    Verify Zig installation:
+    ```bash
+    zig version
+    ```
+  </Step>
+
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/jossephus/wren-lsp.git
+    cd wren-lsp
+    ```
+  </Step>
+
+  <Step title="Build the project">
+    Build with optimizations:
+    ```bash
+    zig build -Doptimize=ReleaseSmall
+    ```
+
+    The binary will be located at `zig-out/bin/wren-lsp`.
+  </Step>
+
+  <Step title="Install the binary">
+    Copy the binary to a directory in your PATH:
+
+    **Linux/macOS:**
+    ```bash
+    sudo cp zig-out/bin/wren-lsp /usr/local/bin/
+    ```
+
+    **Windows:**
+    ```powershell
+    Copy-Item zig-out/bin/wren-lsp.exe "C:\Program Files\WrenLSP\"
+    ```
+  </Step>
+</Steps>
+
+### Cross-compilation
+
+Zig makes it easy to build for different platforms:
+
+```bash
+# Build for Linux x86_64
+zig build -Doptimize=ReleaseSmall -Dtarget=x86_64-linux
+
+# Build for macOS Apple Silicon
+zig build -Doptimize=ReleaseSmall -Dtarget=aarch64-macos
+
+# Build for Windows
+zig build -Doptimize=ReleaseSmall -Dtarget=x86_64-windows
+```
+
+## Verify installation
+
+After installation, verify that Wren LSP is accessible:
+
+```bash
+wren-lsp --help
+```
+
+If the command is not found, ensure the binary is in your system's PATH.
+
+## Next steps
+
+Now that Wren LSP is installed, configure your editor:
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Get Wren LSP running in your editor
+  </Card>
+  <Card title="Editor setup" icon="code" href="/editors/neovim">
+    Detailed configuration for all supported editors
+  </Card>
+</CardGroup>

@@ -1,0 +1,162 @@
+---
+title: Neovim Setup
+description: Configure Wren LSP for Neovim
+---
+
+Set up Wren LSP in Neovim to get features like autocompletion, hover documentation, go to definition, and more.
+
+## Prerequisites
+
+Ensure you have the `wren-lsp` binary installed and available in your `PATH`. You can download it from the [releases page](https://github.com/jossephus/wren-lsp/releases).
+
+## Setup
+
+<Tip>
+The recommended approach is to use `nvim-lspconfig`, which provides a standardized way to configure LSP servers in Neovim.
+</Tip>
+
+<Steps>
+  <Step title="Install nvim-lspconfig">
+    If you haven't already, install [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) using your preferred plugin manager.
+
+    For example, with `lazy.nvim`:
+    ```lua
+    { 'neovim/nvim-lspconfig' }
+    ```
+  </Step>
+
+  <Step title="Configure Wren LSP">
+    Add the following configuration to your Neovim config (typically `~/.config/nvim/init.lua` or `~/.config/nvim/lua/lsp.lua`):
+
+    <CodeGroup>
+    ```lua With lspconfig (recommended)
+    vim.filetype.add({
+      extension = {
+        wren = "wren",
+      },
+    })
+
+    local lspconfig = require("lspconfig")
+    local configs = require("lspconfig.configs")
+
+    if not configs.wren_lsp then
+      configs.wren_lsp = {
+        default_config = {
+          cmd = { "wren-lsp" },
+          filetypes = { "wren" },
+          root_dir = lspconfig.util.root_pattern("wren-lsp.json", ".git"),
+        },
+      }
+    end
+
+    lspconfig.wren_lsp.setup({})
+    ```
+
+    ```lua Without lspconfig
+    vim.filetype.add({
+      extension = {
+        wren = "wren",
+      },
+    })
+
+    vim.api.nvim_create_autocmd("FileType", {
+      group = vim.api.nvim_create_augroup("wren", {}),
+      pattern = "wren",
+      callback = function()
+        vim.lsp.start({
+          name = "Wren LSP",
+          cmd = { "wren-lsp" },
+          root_dir = vim.loop.cwd(),
+          flags = { exit_timeout = 1000 },
+        })
+      end,
+    })
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Restart Neovim">
+    Restart Neovim or reload your configuration:
+    ```vim
+    :source $MYVIMRC
+    ```
+  </Step>
+</Steps>
+
+## Configuration Options
+
+### Root Directory Detection
+
+The LSP server will look for a `wren-lsp.json` configuration file or a `.git` directory to determine the project root. You can customize this behavior by modifying the `root_dir` function:
+
+```lua
+root_dir = lspconfig.util.root_pattern("wren-lsp.json", "package.json", ".git")
+```
+
+### Custom Server Path
+
+If `wren-lsp` is not in your `PATH`, you can specify the full path:
+
+```lua
+cmd = { "/path/to/wren-lsp" }
+```
+
+## Verify Installation
+
+<Steps>
+  <Step title="Open a Wren file">
+    Open any `.wren` file in Neovim.
+  </Step>
+
+  <Step title="Check LSP status">
+    Run the following command to verify the LSP client is attached:
+    ```vim
+    :LspInfo
+    ```
+
+    You should see `wren_lsp` (or `Wren LSP`) listed as an active client.
+  </Step>
+
+  <Step title="Test LSP features">
+    Try using LSP features:
+    - Hover over a variable or function (default: `K`)
+    - Go to definition (default: `gd`)
+    - View diagnostics (default: `<leader>e` or `:lua vim.diagnostic.open_float()`)
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<Note>
+If the LSP server doesn't start, check that:
+- The `wren-lsp` binary is executable (`chmod +x wren-lsp`)
+- The binary is in your `PATH` or you've specified the full path in `cmd`
+- You've restarted Neovim after adding the configuration
+</Note>
+
+To see LSP server logs, run:
+```vim
+:lua vim.cmd('e'..vim.lsp.get_log_path())
+```
+
+## Tips
+
+- Enable inlay hints to see type annotations for variables:
+  ```lua
+  vim.lsp.inlay_hint.enable(true)
+  ```
+
+- Set up keybindings for common LSP actions in your `on_attach` callback:
+  ```lua
+  lspconfig.wren_lsp.setup({
+    on_attach = function(client, bufnr)
+      local opts = { buffer = bufnr }
+      vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
+      vim.keymap.set('n', 'K', vim.lsp.buf.hover, opts)
+      vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
+      vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, opts)
+    end,
+  })
+  ```
+
+- Consider installing [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) for enhanced autocompletion support.

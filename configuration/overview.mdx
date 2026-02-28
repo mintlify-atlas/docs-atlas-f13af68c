@@ -1,0 +1,178 @@
+---
+title: Configuration Overview
+description: Learn how to configure Wren LSP using wren-lsp.json
+---
+
+Wren LSP uses a JSON configuration file to customize module resolution, diagnostics, and other behavior. The configuration system supports inheritance and per-project settings.
+
+## Configuration File
+
+Wren LSP looks for a configuration file named `wren-lsp.json` in your project directory.
+
+### Discovery Process
+
+When you open a Wren file, the LSP searches for `wren-lsp.json` by:
+
+1. Starting from the directory containing the opened file
+2. Checking for `wren-lsp.json` in the current directory
+3. Moving up to parent directories until a config file is found
+4. Continuing until reaching the filesystem root
+
+The directory containing `wren-lsp.json` becomes your **project root**. All relative paths in the configuration are resolved relative to this directory.
+
+<Note>
+The LSP caches configuration by project root. Multiple files in the same project share the same configuration.
+</Note>
+
+## Basic Structure
+
+A minimal `wren-lsp.json` file:
+
+```json
+{
+  "version": 1,
+  "modules": ["./src"],
+  "resolvers": [
+    { "type": "path", "roots": ["./src"], "delimiter": "/" }
+  ]
+}
+```
+
+<Accordion title="View complete configuration example">
+```json
+{
+  "version": 1,
+  "extends": ["./base/wren-lsp.json"],
+  "modules": [
+    "./src",
+    "./lib",
+    { "mymodule": "./lib/special.wren" }
+  ],
+  "resolvers": [
+    { "type": "plugin", "library": "./custom_resolver.dylib" },
+    { "type": "path", "roots": ["./src"], "delimiter": "." }
+  ],
+  "diagnostics": {
+    "missingImport": "error",
+    "extensionInImport": "warning",
+    "unknownVariable": "error"
+  }
+}
+```
+</Accordion>
+
+## Configuration Options
+
+<ParamField path="version" type="number" default={1}>
+  Configuration schema version. Currently only version 1 is supported.
+</ParamField>
+
+<ParamField path="extends" type="string[]" default={[]}>
+  Paths to parent configuration files to inherit from. Later entries override earlier ones.
+  
+  - Relative paths (starting with `./` or `../`) are resolved relative to the config file's directory
+  - Absolute paths are used as-is
+  - Paths can be:
+    - Direct file paths: `"./base/wren-lsp.json"`
+    - Directory paths: `"../shared"` (will look for `wren-lsp.json` inside)
+  
+  <Note>
+  Modules from parent and child configs are **concatenated**. Resolvers from the child config completely **override** parent resolvers.
+  </Note>
+</ParamField>
+
+<ParamField path="modules" type="(string | object)[]" default={[]}>
+  Module search paths and named module mappings. Supports two formats:
+  
+  **Directory paths** (strings): Directories to scan for `.wren` files
+  ```json
+  "modules": ["./src", "./lib"]
+  ```
+  
+  **Named modules** (objects): Map specific module names to file paths
+  ```json
+  "modules": [
+    { "io": "./src/io.wren" },
+    { "config": "./lib/config.wren" }
+  ]
+  ```
+  
+  <Warning>
+  Each object must have exactly one key-value pair. The key is the module name, and the value is the file path.
+  </Warning>
+</ParamField>
+
+<ParamField path="resolvers" type="object[]" default={[]}>
+  Ordered list of resolver configurations. See [Resolvers](/configuration/resolvers) for details.
+  
+  If empty, defaults to:
+  - `path` resolver with `/` delimiter
+  - `builtin` resolver for Wren standard library
+</ParamField>
+
+<ParamField path="diagnostics" type="object">
+  Configure diagnostic severity levels.
+  
+  <ParamField path="diagnostics.missingImport" type="enum" default="warning">
+    Severity when an import cannot be resolved.
+    
+    Options: `"error"`, `"warning"`, `"info"`, `"hint"`, `"none"`
+  </ParamField>
+  
+  <ParamField path="diagnostics.extensionInImport" type="enum" default="info">
+    Severity when import strings include `.wren` extension.
+    
+    Options: `"error"`, `"warning"`, `"info"`, `"hint"`, `"none"`
+  </ParamField>
+  
+  <ParamField path="diagnostics.unknownVariable" type="enum" default="error">
+    Severity for references to undefined variables.
+    
+    Options: `"error"`, `"warning"`, `"info"`, `"hint"`, `"none"`
+  </ParamField>
+</ParamField>
+
+## Configuration Inheritance
+
+You can create shared configurations and extend them in project-specific configs:
+
+**Base config** (`~/.config/wren/base.json`):
+```json
+{
+  "modules": ["~/.local/share/wren/stdlib"],
+  "diagnostics": {
+    "missingImport": "error"
+  }
+}
+```
+
+**Project config** (`./wren-lsp.json`):
+```json
+{
+  "extends": ["~/.config/wren/base.json"],
+  "modules": ["./src"],
+  "resolvers": [
+    { "type": "path", "roots": ["./src"], "delimiter": "." }
+  ]
+}
+```
+
+The effective configuration combines:
+- Modules from both configs (concatenated)
+- Resolvers from the project config only
+- Diagnostics from the project config, falling back to base config
+
+<Note>
+**Circular extends detection**: If two configs extend each other, the LSP logs a warning and stops the cycle.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Module Resolution" icon="folder-tree" href="/configuration/module-resolution">
+    Learn how imports are resolved to files
+  </Card>
+  <Card title="Resolvers" icon="plug" href="/configuration/resolvers">
+    Configure resolver types and behavior
+  </Card>
+</CardGroup>

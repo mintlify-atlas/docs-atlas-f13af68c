@@ -1,0 +1,212 @@
+---
+title: Sublime Text Setup
+description: Configure Wren LSP for Sublime Text
+---
+
+Install and configure Wren LSP support in Sublime Text for features like autocompletion, diagnostics, and code navigation.
+
+## Prerequisites
+
+Ensure you have the `wren-lsp` binary installed and available in your `PATH`. You can download it from the [releases page](https://github.com/jossephus/wren-lsp/releases).
+
+## Installation
+
+<Tip>
+The easiest way to use Wren LSP in Sublime Text is to install the LSP-wren-lsp package from Package Control.
+</Tip>
+
+<Steps>
+  <Step title="Install Package Control">
+    If you don't have Package Control installed, follow the [installation instructions](https://packagecontrol.io/installation).
+  </Step>
+
+  <Step title="Install LSP package">
+    First, install the base LSP package:
+
+    1. Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`)
+    2. Type "Package Control: Install Package"
+    3. Search for "LSP" and install it
+  </Step>
+
+  <Step title="Install LSP-wren-lsp">
+    Install the Wren LSP package:
+
+    1. Open the Command Palette again
+    2. Type "Package Control: Install Package"
+    3. Search for "LSP-wren-lsp" and install it
+
+    Alternatively, visit [LSP-wren-lsp on Package Control](https://packagecontrol.io/packages/LSP-wren-lsp).
+  </Step>
+
+  <Step title="Restart Sublime Text">
+    Restart Sublime Text to complete the installation.
+  </Step>
+</Steps>
+
+## Manual Setup
+
+If the LSP-wren-lsp package is not available, you can configure the LSP manually:
+
+<Steps>
+  <Step title="Install LSP package">
+    Install the base LSP package from Package Control (see above).
+  </Step>
+
+  <Step title="Configure LSP-wren-lsp">
+    Open LSP settings: `Preferences → Package Settings → LSP → Settings`
+
+    Add the following configuration to your LSP settings:
+
+    ```json LSP.sublime-settings
+    {
+      "clients": {
+        "wren-lsp": {
+          "enabled": true,
+          "command": ["wren-lsp"],
+          "selector": "source.wren",
+          "schemes": ["file"]
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Create Wren syntax definition">
+    If Wren syntax highlighting isn't available, you may need to create a simple syntax definition.
+
+    Create a file at `Packages/User/Wren.sublime-syntax`:
+
+    ```yaml Wren.sublime-syntax
+    %YAML 1.2
+    ---
+    name: Wren
+    file_extensions:
+      - wren
+    scope: source.wren
+    ```
+  </Step>
+</Steps>
+
+## Configuration
+
+### Custom Server Path
+
+If `wren-lsp` is not in your `PATH`, specify the full path in your LSP settings:
+
+```json
+{
+  "clients": {
+    "wren-lsp": {
+      "enabled": true,
+      "command": ["/path/to/wren-lsp"],
+      "selector": "source.wren"
+    }
+  }
+}
+```
+
+### Project-Specific Configuration
+
+You can configure Wren LSP per-project by adding settings to your `.sublime-project` file:
+
+```json project.sublime-project
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "LSP": {
+      "wren-lsp": {
+        "enabled": true
+      }
+    }
+  }
+}
+```
+
+## Available Features
+
+The LSP package provides access to all Wren LSP features:
+
+- **Diagnostics** - Real-time error and warning display
+- **Autocompletion** - Triggered automatically as you type
+- **Hover Documentation** - View type information (hover over symbols)
+- **Go to Definition** - Right-click → "LSP: Go to Definition" or `F12`
+- **Find References** - Right-click → "LSP: Find References"
+- **Rename Symbol** - Right-click → "LSP: Rename"
+- **Document Symbols** - `Ctrl+R` or `Cmd+R` to view outline
+- **Signature Help** - Function parameter hints as you type
+- **Code Actions** - Quick fixes via lightbulb icon or `Ctrl+.`
+- **Inlay Hints** - Type hints displayed inline
+
+## Verify Installation
+
+<Steps>
+  <Step title="Open a Wren file">
+    Create or open a `.wren` file in Sublime Text.
+  </Step>
+
+  <Step title="Check LSP status">
+    Look at the bottom of the window. You should see "wren-lsp" in the status bar indicating the server is running.
+  </Step>
+
+  <Step title="Test LSP features">
+    Try using LSP features:
+    - Start typing to trigger autocompletion
+    - Hover over a symbol to see documentation
+    - Right-click a symbol and try "Go to Definition"
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<Note>
+If the LSP server doesn't start:
+
+1. Open the console: `View → Show Console` or `Ctrl+` ` 
+2. Look for error messages related to wren-lsp
+3. Verify the binary is executable and in your PATH
+4. Check LSP logs: `Tools → LSP → Troubleshoot Server`
+</Note>
+
+### Enable LSP Logging
+
+To see detailed LSP logs, enable logging in your LSP settings:
+
+```json
+{
+  "log_debug": true,
+  "log_server": true
+}
+```
+
+Then check the console output when opening a Wren file.
+
+### Server Not Starting
+
+If the server doesn't start automatically:
+
+1. Open the Command Palette
+2. Run "LSP: Enable Language Server Globally" or "LSP: Enable Language Server in Project"
+3. Select "wren-lsp"
+
+## Tips
+
+- Use `Ctrl+Shift+P` (or `Cmd+Shift+P`) and type "LSP" to see all available LSP commands
+- Customize keybindings: `Preferences → Key Bindings` and add LSP-specific shortcuts
+- View the symbols palette with `Ctrl+R` (or `Cmd+R`) for quick navigation within a file
+- Use `Ctrl+Shift+R` (or `Cmd+Shift+R`) for project-wide symbol search
+
+### Recommended LSP Settings
+
+Consider adding these settings for a better experience:
+
+```json
+{
+  "show_diagnostics_panel_on_save": 1,
+  "show_code_actions_bulb": true,
+  "show_inlay_hints": true
+}
+```
